@@ -1,9 +1,11 @@
-#!/usr/bin/env python3
+
+    #!/usr/bin/env python3
 import os
 import subprocess
 import sys
 import json
 import argparse
+import shutil
 from pathlib import Path
 
 class UltimateGenomicBot:
@@ -49,8 +51,10 @@ class UltimateGenomicBot:
         pharmcat_json = self.output_dir / "pharmcat_metabolism.json"
         pharmcat_html = self.output_dir / "pharmcat_metabolism.html"
         
+        pharmcat_bin = shutil.which("pharmcat") or "pharmcat"
+        
         cmd = [
-            "pharmcat", "vcf",
+            pharmcat_bin,
             "-vcf", str(self.cleaned_vcf),
             "-outputHtml", str(pharmcat_html),
             "-outputJson", str(pharmcat_json)
@@ -58,10 +62,15 @@ class UltimateGenomicBot:
         
         print("\n[+] STEP: Executing PharmCAT Pharmacokinetic Analysis")
         try:
-            subprocess.run(cmd, check=True, text=True, capture_output=True)
+            result = subprocess.run(cmd, check=True, text=True, capture_output=True)
+            if result.stdout:
+                print(result.stdout)
             print("[✔] SUCCESS: PharmCAT analysis completed.")
-        except (subprocess.CalledProcessError, FileNotFoundError):
-            print("[!] Note: 'pharmcat' binary not found or execution skipped. Engaging heuristic fallback simulation...")
+        except (subprocess.CalledProcessError, FileNotFoundError) as e:
+            print("[!] Note: 'pharmcat' binary execution failed or not found. Engaging heuristic fallback simulation...")
+            if isinstance(e, subprocess.CalledProcessError) and hasattr(e, 'stderr') and e.stderr:
+                print(e.stderr, file=sys.stderr)
+                
             fallback_data = {
                 "metabolism_summary": "Evaluated via local heuristic allele frequency mapping (PharmCAT fallback active)",
                 "phenotype": "Normal Metabolizer (Estimated)"
