@@ -1,6 +1,7 @@
 # Genetic-vcf-Pharmacokinetic-Pharmacodynamic-Polygenic-Risk-Score-Integration-tool.-
  (CLI) bioinformatics . VCF file and seamlessly executes an end-to-end analytical workflow—covering genomic normalization, pharmacokinetic metabolism evaluation, targeted pharmacodynamic receptor extraction, functional annotation translation, polygenic risk scoring, and an integrated PK + PD cross-referenced therapeutic drug-matching matrix.
 
+ 
 # Ultimate Genomic & Pharmacodynamic Pipeline Bot (`genomic-bot`)
 
 A fully automated command-line tool designed for local processing of genomic Variant Call Format (VCF) files, performing pharmacokinetic (PK) and pharmacodynamic (PD) cross-referencing, polygenic risk evaluation, and therapeutic drug matching.
@@ -33,4 +34,4 @@ A fully automated command-line tool designed for local processing of genomic Var
 To install the tool globally as a command-line utility directly from your repository:
 
 ```bash
-pip install git+[https://github.com/YOUR-USERNAME/YOUR-REPO-NAME.git](https://github.com/YOUR-USERNAME/YOUR-REPO-NAME.git)
+pip install git+[https://github.com/operationgenetics/Genetic-vcf-Pharmacokinetic-Pharmacodynamic-Polygenic-Risk-Score-Integration-tool.-.git](https://github.com/operationgenetics/Genetic-vcf-Pharmacokinetic-Pharmacodynamic-Polygenic-Risk-Score-Integration-tool.-.git)
