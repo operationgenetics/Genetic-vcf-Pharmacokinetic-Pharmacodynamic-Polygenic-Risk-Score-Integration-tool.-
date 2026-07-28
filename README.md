@@ -1,0 +1,2 @@
+# Genetic-vcf-Pharmacokinetic-Pharmacodynamic-Polygenic-Risk-Score-Integration-tool.-
+ (CLI) bioinformatics . VCF file and seamlessly executes an end-to-end analytical workflow—covering genomic normalization, pharmacokinetic metabolism evaluation, targeted pharmacodynamic receptor extraction, functional annotation translation, polygenic risk scoring, and an integrated PK + PD cross-referenced therapeutic drug-matching matrix.
