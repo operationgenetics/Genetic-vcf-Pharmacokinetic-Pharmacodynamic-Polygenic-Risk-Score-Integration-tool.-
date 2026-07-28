@@ -4,6 +4,7 @@ import subprocess
 import sys
 import json
 import argparse
+import shutil
 from pathlib import Path
 
 class UltimateGenomicBot:
