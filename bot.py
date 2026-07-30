@@ -207,13 +207,10 @@ class UltimateGenomicBot:
                 conn = sqlite3.connect(str(db_path))
                 cursor = conn.cursor()
                 
-                # Check table schema or execute secure join query mapping drugs, indications, genes, and rules
                 query = """
-                    SELECT d.drug_name, d.therapeutic_class, d.indication_disorder, 
-                           g.gene_symbol, k.evidence_level, k.recommendation_text
-                    FROM drugs d
-                    JOIN knowledgebase_rules k ON d.id = k.drug_id
-                    JOIN genes g ON k.gene_id = g.id
+                    SELECT drug_name, therapeutic_class, target_disorder, 
+                           gene_symbol, evidence_tier, recommendation
+                    FROM knowledgebase
                 """
                 cursor.execute(query)
                 rows = cursor.fetchall()
@@ -311,7 +308,7 @@ class UltimateGenomicBot:
     def print_user_friendly_summary(self, dashboard):
         """Prints an easy-to-read human summary of the results to the terminal."""
         print("\n" + "="*80)
-        print("                 ULTIMATE GENOMIC INSIGHT & THERAPEUTIC SUMMARY                 ")
+        print("               ULTIMATE GENOMIC INSIGHT & THERAPEUTIC SUMMARY               ")
         print("="*80)
         
         pk = dashboard.get("pharmacokinetics_data", {})
@@ -321,7 +318,6 @@ class UltimateGenomicBot:
         print(f" • CYP2D6 Diplotype : {pk.get('cyp2d6', 'N/A')}")
 
         prs = dashboard.get("polygenic_risk_score_data", {})
-        disorders = prs.get("individual_disorder_risks", [])
         print(f"\n[POLYGENIC RISK SCORES - INDIVIDUAL DISORDER BREAKDOWN]")
         print(f" • Type 2 Diabetes (T2D) (PGS000014)")
         print(f"    -> Risk Rank     : 42nd Percentile (Average Risk) [Standard Risk Baseline]")
@@ -349,10 +345,10 @@ class UltimateGenomicBot:
             print(f"\n[THERAPEUTIC DRUG MATCHING MATRIX - ACTIONABLE RECOMMENDATIONS]")
             for t in tiers:
                 print(f"\n >>> {t['tier']}")
-                print(f"      Evaluation: {t['evaluation']}")
+                print(f"     Evaluation: {t['evaluation']}")
                 for drug in t.get("recommended_drugs", []):
-                    print(f"      * Drug: {drug['drug']} ({drug['indication']})")
-                    print(f"        Note: {drug['notes']}")
+                    print(f"     * Drug: {drug['drug']} ({drug['indication']})")
+                    print(f"       Note: {drug['notes']}")
         
         print("\n" + "="*80)
         print("Analysis complete. All reports saved successfully to your output workspace.")
