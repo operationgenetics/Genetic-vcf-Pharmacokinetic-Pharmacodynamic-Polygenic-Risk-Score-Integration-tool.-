@@ -9,38 +9,42 @@ def initialize_database():
     conn = sqlite3.connect(str(db_path))
     cursor = conn.cursor()
 
-    # Create the schema expected by bot.py
+    # Drop old table if it exists to ensure schema alignment with bot.py
+    cursor.execute("DROP TABLE IF EXISTS knowledgebase;")
+
+    # Create the exact schema expected by bot.py
     cursor.execute("""
-    CREATE TABLE IF NOT EXISTS clinical_guidelines (
+    CREATE TABLE knowledgebase (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        gene TEXT NOT NULL,
         drug_name TEXT NOT NULL,
-        guideline_source TEXT NOT NULL,
-        recommendation TEXT NOT NULL,
-        evidence_level TEXT NOT NULL
+        therapeutic_class TEXT NOT NULL,
+        target_disorder TEXT NOT NULL,
+        gene_symbol TEXT NOT NULL,
+        evidence_tier TEXT NOT NULL,
+        recommendation TEXT NOT NULL
     );
     """)
 
-    # High-accuracy western medicine records (CPIC / PharmGKB guidelines)
+    # Comprehensive Western medicine records matching bot.py query parameters
     sample_data = [
-        ("CYP2C19", "Escitalopram (Lexapro)", "CPIC Guideline", "Monitor plasma levels due to CYP2C19 pathway sensitivity; consider lower initial dose titration.", "1A"),
-        ("CYP2C19", "Sertraline (Zoloft)", "CPIC Guideline", "Processed normally via CYP2C19. Standard starting dose recommended.", "1A"),
-        ("CYP2C19", "Clopidogrel (Plavix)", "CPIC Guideline", "Poor metabolizers exhibit significantly reduced antiplatelet effect. Consider alternative therapy like prasugrel or ticagrelor.", "1A"),
-        ("CYP2D6", "Metoprolol Succinate", "CPIC Guideline", "Normal clearance profile; standard titration guidelines apply for hypertension/heart failure.", "1A"),
-        ("CYP2D6", "Tramadol", "CPIC Guideline", "Ultrarapid metabolizers risk opioid toxicity; poor metabolizers lack analgesic efficacy. Verify conversion efficiency.", "1A"),
-        ("CYP2D6", "Codeine", "CPIC Guideline", "Avoid use in ultra-rapid (respiratory depression risk) and poor metabolizers (lack of pain relief).", "1A"),
-        ("SLCO1B1", "Simvastatin", "CPIC Guideline", "Increased risk of myopathy with variants. Consider lower dose or alternative statin like rosuvastatin.", "1A"),
-        ("HLA-B", "Carbamazepine", "CPIC Guideline", "Strong association with Stevens-Johnson syndrome/toxic epidermal necrolysis in HLA-B*15:02 carriers. Avoid if positive.", "1A")
+        ("Escitalopram (Lexapro)", "SSRI Antidepressant", "Major Depressive Disorder / Anxiety", "CYP2C19", "1A", "Monitor plasma levels due to CYP2C19 pathway sensitivity; consider lower initial dose titration."),
+        ("Sertraline (Zoloft)", "SSRI Antidepressant", "Major Depressive Disorder", "CYP2C19", "1A", "Processed normally via CYP2C19. Standard starting dose recommended."),
+        ("Clopidogrel (Plavix)", "Antiplatelet", "Cardiovascular Disease / Thrombosis", "CYP2C19", "1A", "Poor metabolizers exhibit significantly reduced antiplatelet effect. Consider alternative therapy like prasugrel or ticagrelor."),
+        ("Metoprolol Succinate", "Beta Blocker", "Hypertension / Heart Failure", "CYP2D6", "1A", "Normal clearance profile; standard titration guidelines apply for hypertension/heart failure."),
+        ("Tramadol", "Analgesic", "Pain Management", "CYP2D6", "1A", "Ultrarapid metabolizers risk opioid toxicity; poor metabolizers lack analgesic efficacy. Verify conversion efficiency."),
+        ("Codeine", "Analgesic", "Pain Management", "CYP2D6", "1A", "Avoid use in ultra-rapid (respiratory depression risk) and poor metabolizers (lack of pain relief)."),
+        ("Simvastatin", "Statin", "Hypercholesterolemia", "SLCO1B1", "1A", "Increased risk of myopathy with variants. Consider lower dose or alternative statin like rosuvastatin."),
+        ("Carbamazepine", "Anticonvulsant", "Epilepsy / Bipolar Disorder", "HLA-B", "1A", "Strong association with Stevens-Johnson syndrome/toxic epidermal necrolysis in HLA-B*15:02 carriers. Avoid if positive.")
     ]
 
     cursor.executemany("""
-    INSERT INTO clinical_guidelines (gene, drug_name, guideline_source, recommendation, evidence_level)
-    VALUES (?, ?, ?, ?, ?)
+    INSERT INTO knowledgebase (drug_name, therapeutic_class, target_disorder, gene_symbol, evidence_tier, recommendation)
+    VALUES (?, ?, ?, ?, ?, ?)
     """, sample_data)
 
     conn.commit()
     conn.close()
-    print("[✔] 'genomic_knowledgebase.db' successfully generated and populated.")
+    print("[✔] 'genomic_knowledgebase.db' successfully generated and populated with matching schema.")
 
 if __name__ == "__main__":
     initialize_database()
