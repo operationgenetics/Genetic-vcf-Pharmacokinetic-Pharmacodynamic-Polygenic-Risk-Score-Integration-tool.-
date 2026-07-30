@@ -3,7 +3,7 @@ set -e
 
 echo "[+] Updating system packages and installing bioinformatics binaries..."
 sudo apt-get update
-sudo apt-get install -y default-jdk bcftools tabix wget unzip
+sudo apt-get install -y default-jdk bcftools tabix wget unzip python3-pip
 
 echo "[+] Creating local bin directory..."
 mkdir -p bin
@@ -29,16 +29,19 @@ elif [ -f "$HOME/pharmcat/vcf-preprocessor/requirements.txt" ]; then
     pip3 install --user -r "$HOME/pharmcat/vcf-preprocessor/requirements.txt"
 fi
 
-echo "[+] Generating local genomic knowledgebase database..."
+echo "[+] Automatically generating local SQLite genomic knowledgebase..."
 if [ -f "init_db.py" ]; then
     python3 init_db.py
+    echo "[✔] SQLite knowledgebase database generated successfully!"
 else
-    echo "[!] Warning: init_db.py not found. Skipping local SQLite database generation."
+    echo "[!] Warning: init_db.py not found in root directory. Skipping database generation."
 fi
 
 echo "[+] Configuring PATH and environment variables..."
 WORKSPACE_DIR="$(pwd)"
-echo "export PHARMCAT_JAR=\"$WORKSPACE_DIR/bin/pharmcat.jar\"" >> ~/.bashrc
-echo "export PATH=\"\$PATH:$WORKSPACE_DIR/bin\"" >> ~/.bashrc
 
-echo "[✔] Environment fully configured and ready!"
+# Avoid duplicate entries in .bashrc if run multiple times
+grep -q "PHARMCAT_JAR" ~/.bashrc || echo "export PHARMCAT_JAR=\"$WORKSPACE_DIR/bin/pharmcat.jar\"" >> ~/.bashrc
+grep -q "$WORKSPACE_DIR/bin" ~/.bashrc || echo "export PATH=\"\$PATH:$WORKSPACE_DIR/bin\"" >> ~/.bashrc
+
+echo "[✔] Environment fully configured, database built, and ready!"
