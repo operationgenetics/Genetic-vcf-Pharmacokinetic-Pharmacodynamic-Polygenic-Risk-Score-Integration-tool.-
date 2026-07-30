@@ -29,6 +29,13 @@ elif [ -f "$HOME/pharmcat/vcf-preprocessor/requirements.txt" ]; then
     pip3 install --user -r "$HOME/pharmcat/vcf-preprocessor/requirements.txt"
 fi
 
+echo "[+] Generating local genomic knowledgebase database..."
+if [ -f "init_db.py" ]; then
+    python3 init_db.py
+else
+    echo "[!] Warning: init_db.py not found. Skipping local SQLite database generation."
+fi
+
 echo "[+] Configuring PATH and environment variables..."
 WORKSPACE_DIR="$(pwd)"
 echo "export PHARMCAT_JAR=\"$WORKSPACE_DIR/bin/pharmcat.jar\"" >> ~/.bashrc
