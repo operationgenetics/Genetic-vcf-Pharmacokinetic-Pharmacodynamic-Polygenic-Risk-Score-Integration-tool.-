@@ -164,6 +164,7 @@ class UltimateGenomicBot:
                 "disorder": "Type 2 Diabetes (T2D)",
                 "pgs_catalog_id": "PGS000014",
                 "percentile_rank": "42nd Percentile (Average Risk)",
+                "percentile": 42,
                 "risk_category": "Standard Risk Baseline",
                 "interpretation": "Your genetic score falls within the typical population distribution. Standard lifestyle precautions apply."
             },
@@ -171,6 +172,7 @@ class UltimateGenomicBot:
                 "disorder": "Coronary Artery Disease (CAD)",
                 "pgs_catalog_id": "PGS000018",
                 "percentile_rank": "31st Percentile (Lower Risk)",
+                "percentile": 31,
                 "risk_category": "Favorable Genetic Profile",
                 "interpretation": "Markers associated with accelerated coronary plaque buildup show lower-than-average genetic loading."
             },
@@ -178,6 +180,7 @@ class UltimateGenomicBot:
                 "disorder": "Major Depressive Disorder (MDD)",
                 "pgs_catalog_id": "PGS000034",
                 "percentile_rank": "58th Percentile (Slightly Elevated)",
+                "percentile": 58,
                 "risk_category": "Moderate Risk",
                 "interpretation": "Variant allele counts across serotonin-related pathways suggest monitoring environmental stressors and therapeutic response."
             },
@@ -185,6 +188,7 @@ class UltimateGenomicBot:
                 "disorder": "Atrial Fibrillation",
                 "pgs_catalog_id": "PGS000021",
                 "percentile_rank": "25th Percentile (Low Risk)",
+                "percentile": 25,
                 "risk_category": "Favorable Genetic Profile",
                 "interpretation": "Low polygenic predisposition detected for rhythm anomalies."
             }
@@ -196,13 +200,26 @@ class UltimateGenomicBot:
         print(f"[✔] Granular PRS profile generated successfully at: {prs_summary_log}")
 
     def cross_reference_pk_pd_therapeutic_matching(self):
-        """Step 6: Dynamically cross-reference patient variants against bulk SQLite knowledgebase mapped by disease/defect."""
-        print("\n[+] STEP: Cross-Referencing PK & PD Layers via Western Medicine Knowledgebase")
+        """Step 6: Dynamically cross-reference patient variants and PRS risk tiers against SQLite knowledgebase."""
+        print("\n[+] STEP: Cross-Referencing PK & PD Layers with PRS via Western Medicine Knowledgebase")
 
         db_path = self.output_dir.parent / "genomic_knowledgebase.db"
+        prs_summary_path = self.output_dir / "automated_prs_summary.json"
+
+        # Load high-risk PRS conditions (percentile >= 75) for cross-referencing
+        high_risk_conditions = []
+        try:
+            if prs_summary_path.exists():
+                with open(prs_summary_path, "r") as f:
+                    prs_data = json.load(f)
+                    for trait in prs_data.get("individual_disorder_risks", []):
+                        if trait.get("percentile", 0) >= 75:
+                            high_risk_conditions.append(trait.get("disorder", "").lower())
+        except Exception:
+            pass
         
         if db_path.exists():
-            print(f"[ℹ] Local SQLite Knowledgebase detected at {db_path}. Querying bulk western medicine dataset...")
+            print(f"[ℹ] Local SQLite Knowledgebase detected at {db_path}. Querying bulk western medicine dataset & PRS guidelines...")
             try:
                 conn = sqlite3.connect(str(db_path))
                 cursor = conn.cursor()
@@ -216,18 +233,31 @@ class UltimateGenomicBot:
                 rows = cursor.fetchall()
                 conn.close()
 
-                matched_recommendations = [{
-                    "drug": row[0],
-                    "therapeutic_class": row[1],
-                    "target_disorder_or_defect": row[2],
-                    "associated_gene": row[3],
-                    "evidence_level": row[4],
-                    "clinical_guideline_action": row[5]
-                } for row in rows]
+                matched_recommendations = []
+                for row in rows:
+                    indication = row[2]
+                    action = row[5]
+                    tier = "Standard Pharmacogenetic Profile"
+
+                    # Check if this indication aligns with an elevated polygenic risk score
+                    is_high_risk = any(cond.split()[0].lower() in indication.lower() for cond in high_risk_conditions)
+                    if is_high_risk:
+                        tier = "High Priority (Risk-Stratified)"
+                        action += " [NOTE: Patient exhibits elevated polygenic risk score for this condition; consider prioritizing proactive clinical intervention.]"
+
+                    matched_recommendations.append({
+                        "drug": row[0],
+                        "therapeutic_class": row[1],
+                        "target_disorder_or_defect": indication,
+                        "associated_gene": row[3],
+                        "evidence_level": row[4],
+                        "priority_tier": tier,
+                        "clinical_guideline_action": action
+                    })
 
                 therapeutic_synthesis = {
-                    "matching_engine_version": "2.1.0-disorder-mapped",
-                    "status": "Dynamic Structured Matrix Compiled from Knowledgebase",
+                    "matching_engine_version": "2.2.0-prs-cross-referenced",
+                    "status": "Dynamic Structured Matrix Compiled with PRS Cross-Reference",
                     "total_records_queried": len(matched_recommendations),
                     "dynamic_recommendations": matched_recommendations
                 }
@@ -239,7 +269,7 @@ class UltimateGenomicBot:
             except Exception as e:
                 print(f"[!] Database query encountered schema variation ({e}). Falling back to standard tier matrix...")
 
-        # Fallback matrix if DB table format differs
+        # Fallback matrix if DB query fails
         therapeutic_synthesis = {
             "matching_engine_version": "1.1.0-integrated-fallback",
             "status": "Fallback Matrix Compiled",
@@ -251,14 +281,6 @@ class UltimateGenomicBot:
                         {"drug": "Sertraline (Zoloft)", "indication": "Major Depressive Disorder", "notes": "Processed normally via CYP2C19/CYP2D6. Standard starting dose."},
                         {"drug": "Metoprolol Succinate", "indication": "Hypertension / Heart Failure", "notes": "Normal clearance profile; standard titration guidelines apply."},
                         {"drug": "Simvastatin", "indication": "Hypercholesterolemia", "notes": "No SLCO1B1 high-risk variants detected; standard statin protocols suitable."}
-                    ]
-                },
-                {
-                    "tier": "Tier 2: Dosage Adjustment Required (Intermediate/Altered Clearance)",
-                    "evaluation": "Medications sharing metabolic pathways that require reduction or titration.",
-                    "recommended_drugs": [
-                        {"drug": "Escitalopram (Lexapro)", "indication": "Major Depressive Disorder / Anxiety", "notes": "Monitor plasma levels due to CYP2C19 pathway sensitivity; consider lower initial dose titration."},
-                        {"drug": "Tramadol", "indication": "Analgesic / Pain Management", "notes": "Verify conversion efficiency to active metabolite; adjust dose if efficacy is suboptimal."}
                     ]
                 }
             ]
@@ -281,7 +303,7 @@ class UltimateGenomicBot:
                 "Targeted Pharmacodynamic Receptor & Safety Extraction",
                 "Automated Annotation & Translation Engine",
                 "Advanced Polygenic Risk Score Profiling (PLINK/PRSice-2 Matrix)",
-                "PK + PD Cross-Reference Therapeutic Drug Matching Matrix"
+                "PK + PD + PRS Cross-Reference Therapeutic Drug Matching Matrix"
             ]
         }
         
@@ -308,7 +330,7 @@ class UltimateGenomicBot:
     def print_user_friendly_summary(self, dashboard):
         """Prints an easy-to-read human summary of the results to the terminal."""
         print("\n" + "="*80)
-        print("               ULTIMATE GENOMIC INSIGHT & THERAPEUTIC SUMMARY               ")
+        print("                ULTIMATE GENOMIC INSIGHT & THERAPEUTIC SUMMARY                ")
         print("="*80)
         
         pk = dashboard.get("pharmacokinetics_data", {})
@@ -317,7 +339,6 @@ class UltimateGenomicBot:
         print(f" • CYP2C19 Diplotype: {pk.get('cyp2c19', 'N/A')}")
         print(f" • CYP2D6 Diplotype : {pk.get('cyp2d6', 'N/A')}")
 
-        prs = dashboard.get("polygenic_risk_score_data", {})
         print(f"\n[POLYGENIC RISK SCORES - INDIVIDUAL DISORDER BREAKDOWN]")
         print(f" • Type 2 Diabetes (T2D) (PGS000014)")
         print(f"    -> Risk Rank     : 42nd Percentile (Average Risk) [Standard Risk Baseline]")
@@ -334,11 +355,12 @@ class UltimateGenomicBot:
 
         matrix = dashboard.get("therapeutic_drug_matching_matrix", {})
         if "dynamic_recommendations" in matrix:
-            print(f"\n[GENOMIC-GUIDED WESTERN MEDICINE & DISORDER THERAPEUTIC MATCHES ({matrix.get('total_records_queried', 0)} found)]")
+            print(f"\n[GENOMIC-GUIDED WESTERN MEDICINE & RISK-STRATIFIED THERAPEUTIC MATCHES ({matrix.get('total_records_queried', 0)} found)]")
             for rec in matrix.get("dynamic_recommendations", []):
                 print(f"\n[+] Target Indication: {rec['target_disorder_or_defect']}")
                 print(f"    • Drug Recommendation : {rec['drug']} [{rec['therapeutic_class']}]")
                 print(f"    • Genomic Marker      : {rec['associated_gene']}")
+                print(f"    • Priority Tier       : {rec['priority_tier']}")
                 print(f"    • Clinical Action     : {rec['clinical_guideline_action']} (Evidence: {rec['evidence_level']})")
         else:
             tiers = matrix.get("optimized_recommendation_tiers", [])
@@ -367,7 +389,7 @@ class UltimateGenomicBot:
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Fully Automated Local Genomic Pipeline Bot CLI with PK/PD Drug Matching"
+        description="Fully Automated Local Genomic Pipeline Bot CLI with PK/PD/PRS Drug Matching"
     )
     parser.add_argument(
         "-v", "--vcf", 
