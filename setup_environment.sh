@@ -8,8 +8,8 @@ sudo apt-get install -y default-jdk bcftools tabix wget unzip
 echo "[+] Creating local bin directory..."
 mkdir -p bin
 
-echo "[+] Downloading official PharmCAT..."
-PHARMCAT_URL="https://github.com/pharmcat/pharmcat/releases/download/v3.0.0/pharmcat-3.0.0-all.jar"
+echo "[+] Downloading official PharmCAT v3.4.0..."
+PHARMCAT_URL="https://github.com/PharmGKB/PharmCAT/releases/download/v3.4.0/pharmcat-3.4.0-all.jar"
 if [ ! -f "bin/pharmcat.jar" ]; then
     wget -O bin/pharmcat.jar "$PHARMCAT_URL"
 fi
@@ -25,6 +25,8 @@ fi
 echo "[+] Installing Python dependencies..."
 if [ -f "requirements.txt" ]; then
     pip3 install --user -r requirements.txt
+elif [ -f "$HOME/pharmcat/vcf-preprocessor/requirements.txt" ]; then
+    pip3 install --user -r "$HOME/pharmcat/vcf-preprocessor/requirements.txt"
 fi
 
 echo "[+] Configuring PATH and environment variables..."
@@ -33,4 +35,3 @@ echo "export PHARMCAT_JAR=\"$WORKSPACE_DIR/bin/pharmcat.jar\"" >> ~/.bashrc
 echo "export PATH=\"\$PATH:$WORKSPACE_DIR/bin\"" >> ~/.bashrc
 
 echo "[✔] Environment fully configured and ready!"
-echo "Run: source ~/.bashrc to apply PATH changes."
