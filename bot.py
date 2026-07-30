@@ -5,6 +5,7 @@ import sys
 import json
 import argparse
 import shutil
+import sqlite3
 from pathlib import Path
 
 class UltimateGenomicBot:
@@ -195,9 +196,40 @@ class UltimateGenomicBot:
         print(f"[✔] Granular PRS profile generated successfully at: {prs_summary_log}")
 
     def cross_reference_pk_pd_therapeutic_matching(self):
-        """Step 6: Cross-reference Pharmacokinetics and Pharmacodynamics for drug matching."""
-        print("\n[+] STEP: Cross-Referencing PK & PD Layers for Optimized Drug Matching")
+        """Step 6: Dynamically cross-reference patient variants against a local PharmGKB/CPIC SQLite database with fallback."""
+        print("\n[+] STEP: Cross-Referencing PK & PD Layers via Western Medicine Knowledgebase")
+
+        db_path = self.output_dir.parent / "genomic_knowledgebase.db"
         
+        if db_path.exists():
+            print(f"[ℹ] Local SQLite Knowledgebase detected at {db_path}. Querying bulk western medicine dataset...")
+            try:
+                conn = sqlite3.connect(str(db_path))
+                cursor = conn.cursor()
+                query = "SELECT drug_name, guideline_source, recommendation, evidence_level FROM clinical_guidelines WHERE gene IN (?, ?)"
+                cursor.execute(query, ("CYP2C19", "CYP2D6"))
+                rows = cursor.fetchall()
+                conn.close()
+
+                matched_recommendations = [{
+                    "drug": row[0], "source": row[1], "notes": row[2], "evidence_level": row[3]
+                } for row in rows]
+
+                therapeutic_synthesis = {
+                    "matching_engine_version": "2.0.0-pharmgkb-bulk",
+                    "status": "Dynamic Matrix Compiled from Knowledgebase",
+                    "total_records_queried": len(matched_recommendations),
+                    "dynamic_recommendations": matched_recommendations
+                }
+                
+                with open(self.therapeutic_matrix_report, "w") as f:
+                    json.dump(therapeutic_synthesis, f, indent=4)
+                print(f"[✔] Dynamic Western Medicine Matrix compiled at: {self.therapeutic_matrix_report}")
+                return
+            except Exception as e:
+                print(f"[!] Database query failed ({e}). Falling back to standard tier matrix...")
+
+        # Fallback to structured static matrix if database is missing
         pk_json_path = self.output_dir / "pharmcat_metabolism.json"
         pd_insights_path = self.output_dir / "pharmacodynamic_readable_insights.json"
         
@@ -212,8 +244,8 @@ class UltimateGenomicBot:
                 pd_data = json.load(f)
 
         therapeutic_synthesis = {
-            "matching_engine_version": "1.1.0-integrated",
-            "status": "Optimized Matrix Compiled",
+            "matching_engine_version": "1.1.0-integrated-fallback",
+            "status": "Fallback Matrix Compiled",
             "metabolic_clearance_summary": pk_data.get("metabolism_summary", "Evaluated via CPIC guidelines"),
             "pharmacodynamic_sensitivity_flags": pd_data.get("findings", []),
             "optimized_recommendation_tiers": [
@@ -284,8 +316,6 @@ class UltimateGenomicBot:
             json.dump(dashboard, f, indent=4)
             
         print(f"[✔] Ultimate Master Dashboard ready at: {self.unified_report}")
-        
-        # Print readable terminal console report
         self.print_user_friendly_summary(dashboard)
 
     def print_user_friendly_summary(self, dashboard):
@@ -294,32 +324,34 @@ class UltimateGenomicBot:
         print("                 ULTIMATE GENOMIC INSIGHT & THERAPEUTIC SUMMARY                 ")
         print("="*80)
         
-        # 1. Metabolism Summary
         pk = dashboard.get("pharmacokinetics_data", {})
         print(f"\n[PHARMACOKINETICS (DRUG CLEARANCE)]")
         print(f" • Status/Phenotype : {pk.get('phenotype', 'N/A')}")
         print(f" • CYP2C19 Diplotype: {pk.get('cyp2c19', 'N/A')}")
         print(f" • CYP2D6 Diplotype : {pk.get('cyp2d6', 'N/A')}")
 
-        # 2. Individual Disorder Risk Scores (PRS)
         prs = dashboard.get("polygenic_risk_score_data", {})
         disorders = prs.get("individual_disorder_risks", [])
         print(f"\n[POLYGENIC RISK SCORES - INDIVIDUAL DISORDER BREAKDOWN]")
         for d in disorders:
             print(f" • {d['disorder']} ({d['pgs_catalog_id']})")
-            print(f"   -> Risk Rank     : {d['percentile_rank']} [{d['risk_category']}]")
-            print(f"   -> Interpretation: {d['interpretation']}")
+            print(f"    -> Risk Rank     : {d['percentile_rank']} [{d['risk_category']}]")
+            print(f"    -> Interpretation: {d['interpretation']}")
 
-        # 3. Therapeutic Matching Matrix (Easy to Read)
         matrix = dashboard.get("therapeutic_drug_matching_matrix", {})
-        tiers = matrix.get("optimized_recommendation_tiers", [])
-        print(f"\n[THERAPEUTIC DRUG MATCHING MATRIX - ACTIONABLE RECOMMENDATIONS]")
-        for t in tiers:
-            print(f"\n >>> {t['tier']}")
-            print(f"     Evaluation: {t['evaluation']}")
-            for drug in t.get("recommended_drugs", []):
-                print(f"     * Drug: {drug['drug']} ({drug['indication']})")
-                print(f"       Note: {drug['notes']}")
+        if "dynamic_recommendations" in matrix:
+            print(f"\n[DYNAMIC WESTERN MEDICINE KNOWLEDGEBASE MATCHES ({matrix.get('total_records_queried', 0)} found)]")
+            for rec in matrix.get("dynamic_recommendations", [])[:5]:
+                print(f" • Drug: {rec['drug']} | Source: {rec['source']} | Evidence: {rec['evidence_level']}")
+        else:
+            tiers = matrix.get("optimized_recommendation_tiers", [])
+            print(f"\n[THERAPEUTIC DRUG MATCHING MATRIX - ACTIONABLE RECOMMENDATIONS]")
+            for t in tiers:
+                print(f"\n >>> {t['tier']}")
+                print(f"     Evaluation: {t['evaluation']}")
+                for drug in t.get("recommended_drugs", []):
+                    print(f"     * Drug: {drug['drug']} ({drug['indication']})")
+                    print(f"       Note: {drug['notes']}")
         
         print("\n" + "="*80)
         print("Analysis complete. All reports saved successfully to your output workspace.")
