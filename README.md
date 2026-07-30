@@ -27,6 +27,10 @@ A fully automated command-line tool designed for local processing of genomic Var
 5. **Therapeutic Match Matrix:** Cross-references clearance rates and receptor profiles into structured recommendation tiers.
 
 ---
+### . Initialize the Database
+Before running the bot, generate and populate the local SQLite database:
+```bash
+python3 init_db.py
 
 ## Installation
 
