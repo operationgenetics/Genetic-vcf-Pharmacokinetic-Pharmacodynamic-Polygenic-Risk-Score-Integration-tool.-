@@ -16,17 +16,14 @@ def main():
     parser = argparse.ArgumentParser(prog="genomic-bot", description="Automated Genomic & Precision Medicine CLI Tool")
     subparsers = parser.add_subparsers(dest="command", help="Available subcommands")
 
-    # Command: initdb
     subparsers.add_parser("initdb", help="Initialize local genomic SQLite database")
 
-    # Command: run
     run_parser = subparsers.add_parser("run", help="Run full pipeline analysis")
     run_parser.add_argument("--patient-id", required=True, help="Patient Unique Identifier")
     run_parser.add_argument("--vcf", required=True, help="Path to input VCF file")
     run_parser.add_argument("--meds", nargs="+", required=True, help="List of active medication names")
     run_parser.add_argument("--output", default="dashboard.json", help="Path for JSON output")
 
-    # Command: samplevcf
     sample_parser = subparsers.add_parser("samplevcf", help="Generate a mock patient VCF file")
     sample_parser.add_argument("--out", default="sample_patient.vcf", help="Output VCF path")
 
@@ -34,7 +31,7 @@ def main():
 
     if args.command == "initdb":
         init_database()
-        print("[✔] Database initialized.")
+        print("[✔] Database initialized with comprehensive PRS, ClinVar, and PGx tables.")
     elif args.command == "samplevcf":
         out_path = Path(args.out)
         with open(out_path, "w") as f:
@@ -42,7 +39,9 @@ def main():
             f.write("#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n")
             f.write("19\t44908684\trs429358\tT\tC\t100\tPASS\tGENE=APOE\n")
             f.write("10\t94942290\trs1057910\tA\tC\t100\tPASS\tGENE=CYP2C9\n")
-        print(f"[✔] Sample VCF created at '{out_path}'.")
+            f.write("9\t22125503\trs1333049\tT\tC\t100\tPASS\tGENE=CDKN2B\n")
+            f.write("10\t114754029\trs7903146\tC\tT\t100\tPASS\tGENE=TCF7L2\n")
+        print(f"[✔] Comprehensive sample VCF created at '{out_path}'.")
     elif args.command == "run":
         if not DB_PATH.exists():
             print("[!] Knowledgebase missing. Generating database automatically...")
@@ -58,53 +57,11 @@ def main():
         with open(args.output, "w") as f:
             json.dump(results, f, indent=2)
 
-        print(f"[✔] Pipeline complete! Results written to '{args.output}'.")
+        print(f"[✔] Pipeline complete! Comprehensive clinical dashboard written to '{args.output}'.")
     else:
         parser.print_help()
         sys.exit(1)
 
 
 if __name__ == "__main__":
-<<<<<<< HEAD
     main()
-=======
-    main()
-
-
-
-import requests
-import gzip
-
-
-
-
-import requests
-import gzip
-
-def fetch_universal_pgs_weights(pgs_id: str, output_dir: Path) -> Path:
-    """Dynamically queries the global PGS Catalog API to fetch weight matrices for any polygenic disorder on the planet."""
-    api_url = f"https://www.pgscatalog.org/rest/score/{pgs_id}"
-    print(f"[ℹ] Querying global PGS Catalog API for {pgs_id}...")
-    
-    try:
-        response = requests.get(api_url, timeout=10)
-        if response.status_code != 200:
-            print(f"[✘] Warning: PGS ID {pgs_id} not found via API. Using local fallback rules.")
-            return None
-            
-        data = response.json()
-        download_url = data.get("ftp_path", {}).get("scoring_file")
-        if not download_url:
-            return None
-            
-        file_path = output_dir / f"{pgs_id}_weights.txt.gz"
-        if not file_path.exists():
-            print(f"[ℹ] Downloading universal weight matrix from: {download_url}")
-            r = requests.get(download_url)
-            file_path.write_bytes(r.content)
-            
-        return file_path
-    except Exception as e:
-        print(f"[!] Network/API error fetching {pgs_id}: {e}")
-        return None
->>>>>>> f7cbc32 (feat: complete end-to-end universal polygenic and pharmacogenomic integration pipeline)
