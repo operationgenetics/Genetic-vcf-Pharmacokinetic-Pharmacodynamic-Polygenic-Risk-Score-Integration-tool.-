@@ -1,0 +1,41 @@
+name: Genomic Pipeline Engine CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Codebase
+      uses: actions/checkout@v3
+
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
+    - name: Install Dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pytest
+
+    - name: Initialize Database Schema
+      run: |
+        python3 setup_db.py
+
+    - name: Run Pytest Suite
+      run: |
+        pytest -v
+
+    - name: Run Integration Pipeline Dry-Run
+      run: |
+        mkdir -p results
+        python3 runner.py \
+          --vcf data/fresh_psych_high_risk.vcf.gz \
+          --patient-id CI_TEST_PATIENT \
+          --output results/ci_report.json
