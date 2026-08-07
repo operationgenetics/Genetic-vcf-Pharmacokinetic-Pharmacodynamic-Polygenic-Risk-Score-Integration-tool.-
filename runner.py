@@ -1,3 +1,4 @@
+import os
 #!/usr/bin/env python3
 """
 Enterprise Precision Medicine & Genome-Wide Report Engine (Bug-Fixed & Optimized)
@@ -204,6 +205,7 @@ def run_pipeline(vcf_path: str, patient_id: str, output_path: str):
         "targeted_therapies": compiled_targeted_therapies
     }
 
+    os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
     with open(output_path, "w") as f:
         json.dump(full_payload, f, indent=2)
 
