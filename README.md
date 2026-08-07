@@ -1,10 +1,6 @@
-# Genetic-vcf-Pharmacokinetic-Pharmacodynamic-Polygenic-Risk-Score-Integration-tool.-
- (CLI) bioinformatics . VCF file and seamlessly executes an end-to-end analytical workflow—covering genomic normalization, pharmacokinetic metabolism evaluation, targeted pharmacodynamic receptor extraction, functional annotation translation, polygenic risk scoring, and an integrated PK + PD cross-referenced therapeutic drug-matching matrix.
+# Genetic-vcf-Pharmacokinetic-Pharmacodynamic-Polygenic-Risk-Score-Integration-tool
 
- 
-# Ultimate Genomic & Pharmacodynamic Pipeline Bot (`genomic-bot`)
-
-A fully automated command-line tool designed for local processing of genomic Variant Call Format (VCF) files, performing pharmacokinetic (PK) and pharmacodynamic (PD) cross-referencing, polygenic risk evaluation, and therapeutic drug matching.
+> **CLI Bioinformatics Engine:** An end-to-end precision medicine pipeline integrating VCF variant parsing, CPIC pharmacogenomics (PGx), PK/PD mechanics, Polygenic Risk Scoring (PRS), ACMG pathogenicity, and automated risk-stratified drug selection across psychiatric, cardiovascular, and metabolic disorders.
 
 ---
 
@@ -18,24 +14,30 @@ A fully automated command-line tool designed for local processing of genomic Var
 
 ---
 
-## Features
+## 🧬 Pipeline Architecture & Features
 
-1. **VCF Normalization & Preprocessing:** Automated sorting, indexing, and multiallelic/indel decomposition via `bcftools`.
-2. **Pharmacokinetic Metabolism Engine:** Integration with `PharmCAT` to evaluate drug-gene interactions and metabolic clearance phenotypes (e.g., CYP2D6, CYP2C19).
-3. **Pharmacodynamic Target Extraction:** Automated extraction of high-priority receptor, transporter, and hypersensitivity targets (e.g., `SLC6A4`, `HTR2A`, `OPRM1`, `HLA-B`).
-4. **Polygenic Risk Profiling:** Local baseline marker distribution and automated risk score summary generation.
-5. **Therapeutic Match Matrix:** Cross-references clearance rates and receptor profiles into structured recommendation tiers.
+The pipeline processes raw VCF files through an automated 7-engine workflow:
+
+1. **Pharmacogenomic (PGx) Phenotyping Engine:** Evaluates star-allele metabolizer profiles across major Phase I/II enzymes, transporters, and immune markers (`CYP2D6`, `CYP2C9`, `CYP2C19`, `CYP3A5`, `SLCO1B1`, `DPYD`, `HLA-B*15:02`).
+2. **Polygenic Risk Scoring (PRS) Engine:** Calculates percentile risk scores across complex polygenic traits:
+   * **Psychiatric / Neurological:** Schizoaffective Disorder, Bipolar Disorder, Major Depressive Disorder, Alzheimer's Disease.
+   * **Cardiovascular & Metabolic:** Coronary Artery Disease (CAD), Primary Hypertension, Hypercholesterolemia, Type 2 Diabetes.
+   * **Oncology:** Hereditary Breast Cancer risk modifiers.
+3. **PK / PD Mechanism Mapper:** Annotates bioactivation pathways, hepatic clearance kinetics, receptor sensitivity shifts (`VKORC1`, `ADRB1`), and immune-mediated cytotoxicity paths (`HLA-B*15:02` SJS/TEN risk).
+4. **CPIC & Western Medicine Matrix:** Implements evidence-based clinical dosing guidelines, contraindications, and dosing adjustments.
+5. **Drug-Drug Interaction (DDI) Screener:** Flags enzyme competition and dangerous co-prescriptions (e.g., Aripiprazole + Fluoxetine, Clopidogrel + Omeprazole, Warfarin + Amiodarone).
+6. **ACMG Pathogenicity & Secondary Findings:** Detects actionable monogenic variants (`F5` Factor V Leiden, `BRCA1`, `SERPINA1`, `MTHFR`, `COMT`).
+7. **Polygenic Risk & Disease-Targeted Therapy Bridge:** Automatically cross-references elevated polygenic burden (PRS) or pathogenic variants (ACMG) directly against individual PGx metabolism to recommend safe first-line or reassigned alternative therapies.
 
 ---
-### . Initialize the Database
-Before running the bot, generate and populate the local SQLite database:
-```bash
-python3 init_db.py
 
-## Installation
+## ⚙️ Quick Start Guide
 
-### Global Installation via GitHub
-To install the tool globally as a command-line utility directly from your repository:
+### 1. Repository Setup & Dependencies
+
+Clone the repository and install required dependencies:
 
 ```bash
-pip install git+[https://github.com/operationgenetics/Genetic-vcf-Pharmacokinetic-Pharmacodynamic-Polygenic-Risk-Score-Integration-tool.-.git](https://github.com/operationgenetics/Genetic-vcf-Pharmacokinetic-Pharmacodynamic-Polygenic-Risk-Score-Integration-tool.-.git)
+git clone [https://github.com/operationgenetics/Genetic-vcf-Pharmacokinetic-Pharmacodynamic-Polygenic-Risk-Score-Integration-tool.-.git](https://github.com/operationgenetics/Genetic-vcf-Pharmacokinetic-Pharmacodynamic-Polygenic-Risk-Score-Integration-tool.-.git)
+cd Genetic-vcf-Pharmacokinetic-Pharmacodynamic-Polygenic-Risk-Score-Integration-tool.-
+pip install -r requirements.txt
