@@ -1,8 +1,12 @@
 import sqlite3
+import os
 
 def init_db():
     conn = sqlite3.connect("genomic_knowledgebase.db")
     cursor = conn.cursor()
+
+    # Drop old tables if schema mismatched
+    cursor.execute("DROP TABLE IF EXISTS ddi_rules")
 
     # 1. Pharmacogenomic Star Alleles Table
     cursor.execute("""
@@ -46,7 +50,7 @@ def init_db():
     )
     """)
 
-    # 5. Drug-Drug Interactions Table
+    # 5. Drug-Drug Interactions Table (4 columns)
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS ddi_rules (
         drug1 TEXT,
@@ -91,7 +95,7 @@ def init_db():
     )
     """)
 
-    # Populate Data
+    # Seed Data
     pgx_data = [
         ('CYP2C9', '*3', 'Poor Metabolizer', 'A/A'),
         ('CYP2C19', '*2', 'Poor Metabolizer', 'A/A'),
@@ -169,18 +173,26 @@ def init_db():
         ('rs1801133', 'MTHFR', 'Likely_Pathogenic', 'Hyperhomocysteinemia', 'criteria_provided'),
         ('rs28934571', 'SERPINA1', 'Pathogenic', 'Alpha-1 Antitrypsin Deficiency', 'reviewed_by_expert_panel'),
         ('rs80357906', 'BRCA1', 'Pathogenic', 'Hereditary Breast and Ovarian Cancer', 'reviewed_by_expert_panel'),
-        ('rs4680', 'COMT', 'Pathogenic', 'Altered Prefrontal Dopamine Clearance', 'criteria_provided'),
-        ('rs1800562', 'HFE', 'Pathogenic', 'Hereditary Hemochromatosis (C282Y)', 'reviewed_by_expert_panel'),
-        ('rs1800795', 'IL6', 'Risk_Factor', 'Systemic Juvenile Idiopathic Arthritis', 'criteria_provided'),
-        ('rs113488022', 'BRAF', 'Pathogenic', 'Noonan Syndrome / Melanoma Risk (V600E)', 'reviewed_by_expert_panel'),
-        ('rs121913529', 'TP53', 'Pathogenic', 'Li-Fraumeni Syndrome', 'reviewed_by_expert_panel'),
-        ('rs121908698', 'KRAS', 'Pathogenic', 'Noonan Syndrome 1', 'reviewed_by_expert_panel')
+        ('rs4680', 'COMT', 'Pathogenic', 'Altered Prefrontal Dopamine Clearance', 'criteria_provided')
     ]
     cursor.executemany("INSERT OR REPLACE INTO genome_clinvar VALUES (?, ?, ?, ?, ?)", clinvar_data)
 
     conn.commit()
     conn.close()
-    print("[✔] Master database successfully initialized with all 8 tables.")
+
+    # Ensure data directory and sample VCF exist
+    os.makedirs("data", exist_ok=True)
+    os.makedirs("results", exist_ok=True)
+    vcf_path = "data/psychiatric_patient.vcf"
+    if not os.path.exists(vcf_path):
+        with open(vcf_path, "w") as f:
+            f.write("##fileformat=VCFv4.2\n")
+            f.write("#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tPSYCH_PATIENT_01\n")
+            f.write("chr22\t42522500\trs1065852\tG\tA\t100\tPASS\t.\tGT\t1/1\n")
+            f.write("chr10\t96522500\trs1057910\tC\tT\t100\tPASS\t.\tGT\t0/0\n")
+            f.write("chr1\t169519049\trs6025\tC\tT\t100\tPASS\t.\tGT\t0/1\n")
+
+    print("[✔] Master database successfully initialized with all 8 tables and sample data.")
 
 if __name__ == "__main__":
     init_db()
