@@ -3,6 +3,7 @@ import json
 import argparse
 import os
 import gzip
+import math
 
 def open_vcf(vcf_path):
     """Seamlessly open both uncompressed .vcf and bgzip/gzip compressed .vcf.gz files."""
@@ -67,28 +68,115 @@ def evaluate_pgx_star_alleles(conn, patient_variants):
     cursor.execute("SELECT gene_symbol, star_allele, metabolizer_status, genotype_pattern FROM pgx_star_alleles")
     rules = cursor.fetchall()
 
-    phenotypes = {}
+    phenotypes = {
+        'CYP2D6': 'Normal Metabolizer (*1/*1)',
+        'CYP2C19': 'Normal Metabolizer (*1/*1)',
+        'CYP2C9': 'Normal Metabolizer (*1/*1)',
+        'SLCO1B1': 'Normal Metabolizer (*1/*1)',
+        'CYP3A5': 'Normal Metabolizer (*1/*1)',
+        'VKORC1': 'Normal Metabolizer (*1/*1)'
+    }
+
     for gene, star, status, pattern in rules:
-        if gene not in phenotypes:
-            phenotypes[gene] = "Normal Metabolizer (*1/*1)"
         for rsid, var in patient_variants.items():
-            if var['genotype'] in ['1/1', '1|1', '0/1', '1/0']:
+            gt = var['genotype']
+            if gt in ['1/1', '1|1']:
                 if gene == 'CYP2D6' and rsid == 'rs1065852':
                     phenotypes[gene] = f"Poor Metabolizer ({star}/{star})"
                 elif gene == 'CYP2C19' and rsid == 'rs4244285':
                     phenotypes[gene] = f"Poor Metabolizer ({star}/{star})"
                 elif gene == 'CYP2C9' and rsid == 'rs1057910':
                     phenotypes[gene] = f"Poor Metabolizer ({star}/{star})"
+            elif gt in ['0/1', '1/0', '0|1', '1|0']:
+                if gene == 'CYP2D6' and rsid == 'rs1065852':
+                    phenotypes[gene] = f"Intermediate Metabolizer (*1/{star})"
+                elif gene == 'CYP2C19' and rsid == 'rs4244285':
+                    phenotypes[gene] = f"Intermediate Metabolizer (*1/{star})"
+                elif gene == 'CYP2C9' and rsid == 'rs1057910':
+                    phenotypes[gene] = f"Intermediate Metabolizer (*1/{star})"
 
     return phenotypes
 
-def evaluate_prs(conn):
+def evaluate_prs_dynamic(conn, patient_variants):
+    """Calculates Polygenic Risk Scores dynamically from VCF variants using prs_weights if present."""
     cursor = conn.cursor()
+    
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='prs_weights'")
+    has_prs_weights = cursor.fetchone() is not None
+
+    if not has_prs_weights:
+        cursor.execute("SELECT disease_name, percentile, risk_category, base_score FROM prs_rules")
+        return [
+            {"disease": row[0], "percentile": row[1], "risk_category": row[2], "score": row[3]}
+            for row in cursor.fetchall()
+        ]
+
+    cursor.execute("SELECT trait, rsid, risk_allele, weight FROM prs_weights")
+    rows = cursor.fetchall()
+
+    if not rows:
+        cursor.execute("SELECT disease_name, percentile, risk_category, base_score FROM prs_rules")
+        return [
+            {"disease": row[0], "percentile": row[1], "risk_category": row[2], "score": row[3]}
+            for row in cursor.fetchall()
+        ]
+
+    trait_scores = {}
+    trait_max = {}
+
+    for trait, rsid, risk_allele, weight in rows:
+        if trait not in trait_scores:
+            trait_scores[trait] = 0.0
+            trait_max[trait] = 0.0
+
+        trait_max[trait] += 2.0 * weight
+
+        if rsid in patient_variants:
+            gt = patient_variants[rsid].get('genotype', './.')
+            alt = patient_variants[rsid].get('alt', '')
+            
+            dosage = 0
+            if gt in ['1/1', '1|1']:
+                dosage = 2
+            elif gt in ['0/1', '1/0', '0|1', '1|0']:
+                dosage = 1
+
+            if alt == risk_allele or dosage > 0:
+                trait_scores[trait] += dosage * weight
+
+    results = []
+    for trait, raw_score in trait_scores.items():
+        max_possible = trait_max.get(trait, 1.0)
+        norm_ratio = raw_score / max_possible if max_possible > 0 else 0.0
+        
+        percentile = min(99, max(1, int(100 / (1 + math.exp(-5 * (norm_ratio - 0.45))))))
+        
+        if percentile >= 75:
+            category = "High"
+        elif percentile >= 35:
+            category = "Moderate"
+        else:
+            category = "Low"
+
+        results.append({
+            "disease": trait,
+            "percentile": percentile,
+            "risk_category": category,
+            "score": round(raw_score, 2)
+        })
+
     cursor.execute("SELECT disease_name, percentile, risk_category, base_score FROM prs_rules")
-    return [
-        {"disease": row[0], "percentile": row[1], "risk_category": row[2], "score": row[3]}
-        for row in cursor.fetchall()
-    ]
+    existing_traits = {r["disease"] for r in results}
+    for row in cursor.fetchall():
+        if row[0] not in existing_traits:
+            results.append({
+                "disease": row[0],
+                "percentile": row[1],
+                "risk_category": row[2],
+                "score": row[3]
+            })
+
+    return results
 
 def evaluate_pk_pd(conn):
     cursor = conn.cursor()
@@ -98,13 +186,27 @@ def evaluate_pk_pd(conn):
         for row in cursor.fetchall()
     ]
 
-def evaluate_cpic(conn):
+def evaluate_cpic(conn, pgx_phenotypes):
     cursor = conn.cursor()
     cursor.execute("SELECT drug_name, gene_symbol, status, recommendation FROM cpic_guidelines")
-    return [
-        {"drug": row[0], "gene": row[1], "status": row[2], "recommendation": row[3]}
-        for row in cursor.fetchall()
-    ]
+    guidelines = []
+    
+    for drug, gene, status, rec in cursor.fetchall():
+        gene_status = pgx_phenotypes.get(gene, "Normal Metabolizer")
+        
+        if "Poor Metabolizer" in gene_status:
+            if drug in ["Clopidogrel", "Escitalopram", "Carbamazepine", "Fluorouracil"]:
+                status = "CONTRAINDICATED"
+            elif drug in ["Warfarin", "Aripiprazole", "Risperidone"]:
+                status = "HIGH_RISK"
+        
+        guidelines.append({
+            "drug": drug,
+            "gene": gene,
+            "status": status,
+            "recommendation": rec
+        })
+    return guidelines
 
 def evaluate_ddi_rules(conn):
     cursor = conn.cursor()
@@ -148,16 +250,26 @@ def evaluate_genome_clinvar(conn, patient_variants):
             })
     return clinvar
 
-def evaluate_targeted_therapies(conn, pgx_phenotypes):
+def evaluate_targeted_therapies(conn, pgx_phenotypes, prs_results):
     cursor = conn.cursor()
     cursor.execute("SELECT condition_trait, primary_drug, gene_checked, pgx_status, alternative_drug, clinical_rationale FROM disease_targeted_therapies")
     therapies = []
+    
+    prs_map = {p["disease"]: p for p in prs_results}
+
     for trait, drug, gene, status, alt_drug, rationale in cursor.fetchall():
         gene_status = pgx_phenotypes.get(gene, "Normal")
-        is_high_risk = "Poor" in gene_status or "Decreased" in gene_status
+        is_high_risk_pgx = "Poor" in gene_status or "Decreased" in gene_status
+        
+        trait_prs = prs_map.get(trait, {})
+        is_high_prs = trait_prs.get("risk_category") == "High"
 
-        final_status = "REASSIGNED TO ALTERNATIVE (" + alt_drug + ") due to " + gene + " status (" + status + ")" if is_high_risk and status == "HIGH_RISK" else "SUITABLE"
-        selected_drug = alt_drug if is_high_risk and status == "HIGH_RISK" else drug
+        if is_high_risk_pgx or (is_high_prs and status == "HIGH_RISK"):
+            final_status = f"REASSIGNED TO ALTERNATIVE ({alt_drug}) due to {gene} status ({status})"
+            selected_drug = alt_drug
+        else:
+            final_status = "SUITABLE"
+            selected_drug = drug
 
         therapies.append({
             "condition": trait,
@@ -178,13 +290,13 @@ def generate_report(vcf_path, patient_id, output_json=None):
 
     patient_variants = parse_vcf(vcf_path, patient_id)
     pgx_phenotypes = evaluate_pgx_star_alleles(conn, patient_variants)
-    prs_results = evaluate_prs(conn)
+    prs_results = evaluate_prs_dynamic(conn, patient_variants)
     pk_pd_results = evaluate_pk_pd(conn)
-    cpic_results = evaluate_cpic(conn)
+    cpic_results = evaluate_cpic(conn, pgx_phenotypes)
     ddi_results = evaluate_ddi_rules(conn)
     acmg_results = evaluate_acmg_findings(conn, patient_variants)
     clinvar_results = evaluate_genome_clinvar(conn, patient_variants)
-    targeted_therapies = evaluate_targeted_therapies(conn, pgx_phenotypes)
+    targeted_therapies = evaluate_targeted_therapies(conn, pgx_phenotypes, prs_results)
 
     report_data = {
         "patient_id": patient_id,
