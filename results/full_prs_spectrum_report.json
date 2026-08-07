@@ -1,0 +1,273 @@
+{
+  "patient_id": "FULL_SPECTRUM_PRS_01",
+  "vcf_file": "data/full_prs_spectrum.vcf.gz",
+  "pgx_phenotypes": {
+    "CYP2C19": {
+      "gene": "CYP2C19",
+      "diplotype": "*2/*2",
+      "cpic_phenotype": "Poor Metabolizer",
+      "activity_score": 0.0,
+      "status": "VALIDATED"
+    },
+    "CYP2D6": {
+      "gene": "CYP2D6",
+      "diplotype": "*10/*10xN (copies: 3)",
+      "cpic_phenotype": "Intermediate Metabolizer",
+      "activity_score": 0.75,
+      "status": "VALIDATED_WITH_CNV",
+      "cnv": {
+        "gene": "CYP2D6",
+        "cnv_status": "DUPLICATION_DETECTED (xN)",
+        "estimated_copy_number": 3,
+        "depth_ratio": 1.5
+      }
+    },
+    "SLCO1B1": {
+      "gene": "SLCO1B1",
+      "diplotype": "*1/*1",
+      "cpic_phenotype": "Normal Function",
+      "activity_score": 2.0,
+      "status": "VALIDATED"
+    }
+  },
+  "prs_results": {
+    "Anxiety Disorder": {
+      "raw_score": 1.65,
+      "ancestry_pop": "EUR",
+      "adjusted_mean": 0.036,
+      "z_score": 1.61,
+      "percentile": 94.7,
+      "risk_status": "High Risk",
+      "coverage_pct": 85.0
+    },
+    "Generalized Anxiety Disorder": {
+      "raw_score": 1.58,
+      "ancestry_pop": "EUR",
+      "adjusted_mean": 0.036,
+      "z_score": 1.54,
+      "percentile": 93.9,
+      "risk_status": "High Risk",
+      "coverage_pct": 85.0
+    },
+    "Panic Disorder": {
+      "raw_score": 1.72,
+      "ancestry_pop": "EUR",
+      "adjusted_mean": 0.036,
+      "z_score": 1.68,
+      "percentile": 95.4,
+      "risk_status": "High Risk",
+      "coverage_pct": 85.0
+    },
+    "Post-Traumatic Stress Disorder": {
+      "raw_score": 1.45,
+      "ancestry_pop": "EUR",
+      "adjusted_mean": 0.036,
+      "z_score": 1.41,
+      "percentile": 92.1,
+      "risk_status": "High Risk",
+      "coverage_pct": 85.0
+    },
+    "Schizoaffective Disorder": {
+      "raw_score": 1.8,
+      "ancestry_pop": "EUR",
+      "adjusted_mean": 0.036,
+      "z_score": 1.76,
+      "percentile": 96.1,
+      "risk_status": "High Risk",
+      "coverage_pct": 85.0
+    },
+    "Bipolar Disorder": {
+      "raw_score": 1.6,
+      "ancestry_pop": "EUR",
+      "adjusted_mean": 0.036,
+      "z_score": 1.56,
+      "percentile": 94.1,
+      "risk_status": "High Risk",
+      "coverage_pct": 85.0
+    },
+    "Major Depressive Disorder": {
+      "raw_score": 1.68,
+      "ancestry_pop": "EUR",
+      "adjusted_mean": 0.036,
+      "z_score": 1.64,
+      "percentile": 95.0,
+      "risk_status": "High Risk",
+      "coverage_pct": 85.0
+    },
+    "Coronary Artery Disease": {
+      "raw_score": 0.02,
+      "ancestry_pop": "EUR",
+      "adjusted_mean": 0.036,
+      "z_score": -0.02,
+      "percentile": 49.4,
+      "risk_status": "Low Risk",
+      "coverage_pct": 85.0
+    },
+    "Type 2 Diabetes": {
+      "raw_score": -0.15,
+      "ancestry_pop": "EUR",
+      "adjusted_mean": 0.036,
+      "z_score": -0.19,
+      "percentile": 42.6,
+      "risk_status": "Low Risk",
+      "coverage_pct": 85.0
+    }
+  },
+  "cpic_therapeutic_screen": [
+    [
+      "Aspirin",
+      "CYP2C19",
+      "SUITABLE",
+      "Standard antiplatelet therapy."
+    ],
+    [
+      "Clopidogrel",
+      "CYP2C19",
+      "CONTRAINDICATED",
+      "Avoid clopidogrel due to significantly reduced active metabolite formation. Switch to prasugrel or ticagrelor."
+    ],
+    [
+      "Simvastatin",
+      "SLCO1B1",
+      "SUITABLE",
+      "Limit simvastatin dose to 20mg daily or switch to rosuvastatin/pravastatin."
+    ],
+    [
+      "Warfarin",
+      "CYP2C9",
+      "HIGH_RISK",
+      "Reduce initial dose by 50-80% due to severely reduced clearance."
+    ],
+    [
+      "Aripiprazole",
+      "CYP2D6",
+      "HIGH_RISK",
+      "Reduce initial dose by 50% due to impaired clearance and elevated plasma levels."
+    ],
+    [
+      "Risperidone",
+      "CYP2D6",
+      "HIGH_RISK",
+      "Titrate slowly or reduce dose by 50%; monitor for extrapyramidal symptoms."
+    ],
+    [
+      "Clozapine",
+      "CYP1A2",
+      "SUITABLE",
+      "Monitor trough serum concentrations; lower maintenance doses required."
+    ],
+    [
+      "Carbamazepine",
+      "HLA-B*15:02",
+      "CONTRAINDICATED",
+      "Avoid due to high risk of Stevens-Johnson syndrome (SJS) and toxic epidermal necrolysis (TEN). Switch to Valproate or Lamotrigine."
+    ],
+    [
+      "Escitalopram",
+      "CYP2C19",
+      "CONTRAINDICATED",
+      "Reduce starting dose by 50% or select alternative drug not predominant on CYP2C19."
+    ],
+    [
+      "Sertraline",
+      "CYP2C19",
+      "SUITABLE",
+      "Consider 50% dose reduction if co-administered with CYP2D6 inhibitors."
+    ],
+    [
+      "Tacrolimus",
+      "CYP3A5",
+      "SUITABLE",
+      "Standard starting dose required for non-expressers."
+    ],
+    [
+      "Fluorouracil",
+      "DPYD",
+      "CONTRAINDICATED",
+      "Avoid use due to severe, potentially fatal toxicity."
+    ]
+  ],
+  "targeted_therapies": [
+    {
+      "trait": "Anxiety Disorder",
+      "dynamic_polygenic_risk": "High Risk",
+      "percentile": 94.7,
+      "targeted_drug": "Escitalopram",
+      "gene_evaluated": "CYP2C19 (Patient PGx Status: CONTRAINDICATED)",
+      "action_required": "\u26a0\ufe0f SWITCH / REASSIGN -> Venlafaxine / Duloxetine",
+      "rationale": "Indicated for elevated polygenic risk of Anxiety. CYP2C19 Poor Metabolizer status causes reduced drug clearance and elevated serum concentration. CPIC recommends avoiding Escitalopram or switching to SNRI alternatives."
+    },
+    {
+      "trait": "Generalized Anxiety Disorder",
+      "dynamic_polygenic_risk": "High Risk",
+      "percentile": 93.9,
+      "targeted_drug": "Escitalopram",
+      "gene_evaluated": "CYP2C19 (Patient PGx Status: CONTRAINDICATED)",
+      "action_required": "\u26a0\ufe0f SWITCH / REASSIGN -> Buspirone / Duloxetine",
+      "rationale": "Indicated for elevated GAD polygenic burden. Impaired CYP2C19 metabolism significantly impairs primary SSRI clearance; re-routed to non-CYP2C19 dependent anxiolytics."
+    },
+    {
+      "trait": "Panic Disorder",
+      "dynamic_polygenic_risk": "High Risk",
+      "percentile": 95.4,
+      "targeted_drug": "Sertraline",
+      "gene_evaluated": "CYP2C19 (Patient PGx Status: SUITABLE)",
+      "action_required": "\u2714 APPROVED -> Maintain Sertraline",
+      "rationale": "First-line SSRI indicated for elevated Panic Disorder polygenic score. Normal CYP2C19 metabolic capacity ensures expected plasma clearance and therapeutic efficacy."
+    },
+    {
+      "trait": "Post-Traumatic Stress Disorder",
+      "dynamic_polygenic_risk": "High Risk",
+      "percentile": 92.1,
+      "targeted_drug": "Sertraline",
+      "gene_evaluated": "CYP2C19 (Patient PGx Status: SUITABLE)",
+      "action_required": "\u2714 APPROVED -> Maintain Sertraline",
+      "rationale": "First-line pharmacotherapy for high PTSD polygenic risk. Patient profile indicates normal hepatic metabolism, approving standard CPIC dosing protocols."
+    },
+    {
+      "trait": "Schizoaffective Disorder",
+      "dynamic_polygenic_risk": "High Risk",
+      "percentile": 96.1,
+      "targeted_drug": "Aripiprazole / Risperidone",
+      "gene_evaluated": "CYP2D6 (Patient PGx Status: MODIFIED_RISK)",
+      "action_required": "\u26a0\ufe0f SWITCH / REASSIGN -> Clozapine / Olanzapine",
+      "rationale": "Indicated for Schizoaffective polygenic risk. CYP2D6 duplication increases activity score to Intermediate Metabolizer status; monitor dosing closely or assign Clozapine/Olanzapine."
+    },
+    {
+      "trait": "Bipolar Disorder",
+      "dynamic_polygenic_risk": "High Risk",
+      "percentile": 94.1,
+      "targeted_drug": "Carbamazepine",
+      "gene_evaluated": "HLA-B*15:02 (Patient PGx Status: CONTRAINDICATED)",
+      "action_required": "\u26a0\ufe0f SWITCH / REASSIGN -> Valproate / Lamotrigine",
+      "rationale": "First-line mood stabilizer for elevated Bipolar polygenic risk. HLA-B*15:02 positivity carries high risk of SJS/TEN. Strictly contraindicated; reassigned to Valproate or Lamotrigine."
+    },
+    {
+      "trait": "Major Depressive Disorder",
+      "dynamic_polygenic_risk": "High Risk",
+      "percentile": 95.0,
+      "targeted_drug": "Escitalopram",
+      "gene_evaluated": "CYP2C19 (Patient PGx Status: CONTRAINDICATED)",
+      "action_required": "\u26a0\ufe0f SWITCH / REASSIGN -> Sertraline / Mirtazapine",
+      "rationale": "Indicated for MDD polygenic burden. CYP2C19 Poor Metabolizer profile inhibits clearance, increasing toxicity risk. CPIC guidelines advise switching to Sertraline or Mirtazapine."
+    },
+    {
+      "trait": "Coronary Artery Disease",
+      "dynamic_polygenic_risk": "Low Risk",
+      "percentile": 49.4,
+      "targeted_drug": "Simvastatin",
+      "gene_evaluated": "SLCO1B1 (Patient PGx Status: SUITABLE)",
+      "action_required": "\u2714 APPROVED -> Maintain Simvastatin",
+      "rationale": "Primary lipid-lowering therapy for CAD. SLCO1B1 hepatic influx transporter function is normal (*1/*1), permitting standard simvastatin dosing without heightened myopathy risk."
+    },
+    {
+      "trait": "Type 2 Diabetes",
+      "dynamic_polygenic_risk": "Low Risk",
+      "percentile": 42.6,
+      "targeted_drug": "Metformin",
+      "gene_evaluated": "SLC22A1 (Patient PGx Status: SUITABLE)",
+      "action_required": "\u2714 APPROVED -> Maintain Metformin",
+      "rationale": "First-line biguanide therapy for T2D. SLC22A1 hepatic uptake transporter status is normal, ensuring standard therapeutic glycemic response."
+    }
+  ]
+}
