@@ -1,134 +1,118 @@
-import argparse
-import json
 import sqlite3
+import json
+import argparse
 import os
+import gzip
 
-def connect_db():
-    return sqlite3.connect("genomic_knowledgebase.db")
-
-def parse_vcf_variants(vcf_path):
-    patient_variants = {}
+def open_vcf(vcf_path):
+    """Seamlessly open both uncompressed .vcf and bgzip/gzip compressed .vcf.gz files."""
     if not os.path.exists(vcf_path):
         print(f"[!] VCF file {vcf_path} not found.")
-        return patient_variants
-        
-    with open(vcf_path, 'r') as f:
+        return None
+    if vcf_path.endswith('.gz'):
+        return gzip.open(vcf_path, 'rt', encoding='utf-8', errors='replace')
+    return open(vcf_path, 'r', encoding='utf-8')
+
+def parse_vcf(vcf_path, target_sample_id=None):
+    """Extract variants (rsIDs and genotypes) from a VCF or VCF.GZ file."""
+    variants = {}
+    f = open_vcf(vcf_path)
+    if not f:
+        return variants
+
+    try:
+        sample_index = None
         for line in f:
-            if line.startswith('#'):
+            if line.startswith('##'):
                 continue
+            if line.startswith('#CHROM'):
+                headers = line.strip().split('\t')
+                if len(headers) > 9:
+                    if target_sample_id and target_sample_id in headers:
+                        sample_index = headers.index(target_sample_id)
+                    else:
+                        sample_index = 9  # Default to first sample
+                continue
+
             parts = line.strip().split('\t')
-            if len(parts) >= 5:
-                chrom, pos, rsid, ref, alt = parts[0], parts[1], parts[2], parts[3], parts[4]
-                gt = "0/1"
-                if len(parts) >= 10:
-                    gt_info = parts[9].split(':')[0]
-                    gt = gt_info
-                patient_variants[rsid] = {
+            if len(parts) < 8:
+                continue
+
+            chrom, pos, rsid, ref, alt, qual, filter_val, info = parts[:8]
+            genotype = "./."
+
+            if sample_index and len(parts) > sample_index:
+                format_fields = parts[8].split(':')
+                sample_fields = parts[sample_index].split(':')
+                if 'GT' in format_fields:
+                    gt_idx = format_fields.index('GT')
+                    if gt_idx < len(sample_fields):
+                        genotype = sample_fields[gt_idx]
+
+            if rsid != '.' and rsid:
+                variants[rsid] = {
                     "chrom": chrom,
                     "pos": pos,
                     "ref": ref,
                     "alt": alt,
-                    "genotype": gt
+                    "genotype": genotype
                 }
-    return patient_variants
+    finally:
+        f.close()
 
-def evaluate_genome_wide_clinvar(conn, patient_variants):
-    cursor = conn.cursor()
-    findings = []
-    
-    for rsid, details in patient_variants.items():
-        cursor.execute("""
-            SELECT gene_symbol, clinical_significance, associated_conditions, review_status
-            FROM genome_clinvar WHERE rsid = ?
-        """, (rsid,))
-        row = cursor.fetchone()
-        if row:
-            findings.append({
-                "rsid": rsid,
-                "gene": row[0],
-                "significance": row[1],
-                "condition": row[2],
-                "review_status": row[3],
-                "genotype": details["genotype"]
-            })
-    return findings
+    return variants
 
-def evaluate_pgx_phenotypes(conn, patient_variants):
+def evaluate_pgx_star_alleles(conn, patient_variants):
     cursor = conn.cursor()
     cursor.execute("SELECT gene_symbol, star_allele, metabolizer_status, genotype_pattern FROM pgx_star_alleles")
     rules = cursor.fetchall()
-    
-    phenotypes = {
-        "CYP2C9": "*1/*1 (Normal Metabolizer)",
-        "CYP2C19": "*1/*1 (Normal Metabolizer)",
-        "SLCO1B1": "*1/*1 (Normal Function)",
-        "CYP3A5": "*3/*3 (Non-Expresser)",
-        "CYP2D6": "*1/*1 (Normal Metabolizer)",
-        "VKORC1": "1639G>G (Normal Sensitivity)"
-    }
 
-    if "rs1065852" in patient_variants:
-        phenotypes["CYP2D6"] = "*10/*10 (Poor Metabolizer)"
-    if "rs1057910" in patient_variants or "rs1800492" in patient_variants:
-        phenotypes["CYP2C9"] = "*3/*3 (Poor Metabolizer)"
-    if "rs4244285" in patient_variants or "rs12248560" in patient_variants:
-        phenotypes["CYP2C19"] = "*2/*2 (Poor Metabolizer)"
-    if "rs4149056" in patient_variants:
-        phenotypes["SLCO1B1"] = "*5/*5 (Decreased Function)"
-    if "rs9923231" in patient_variants:
-        phenotypes["VKORC1"] = "-1639G>A (High Sensitivity)"
+    phenotypes = {}
+    for gene, star, status, pattern in rules:
+        if gene not in phenotypes:
+            phenotypes[gene] = "Normal Metabolizer (*1/*1)"
+        for rsid, var in patient_variants.items():
+            if var['genotype'] in ['1/1', '1|1', '0/1', '1/0']:
+                if gene == 'CYP2D6' and rsid == 'rs1065852':
+                    phenotypes[gene] = f"Poor Metabolizer ({star}/{star})"
+                elif gene == 'CYP2C19' and rsid == 'rs4244285':
+                    phenotypes[gene] = f"Poor Metabolizer ({star}/{star})"
+                elif gene == 'CYP2C9' and rsid == 'rs1057910':
+                    phenotypes[gene] = f"Poor Metabolizer ({star}/{star})"
 
     return phenotypes
 
-def evaluate_prs_scores(conn, patient_variants):
+def evaluate_prs(conn):
     cursor = conn.cursor()
     cursor.execute("SELECT disease_name, percentile, risk_category, base_score FROM prs_rules")
-    scores = {}
-    for disease, percentile, risk, score in cursor.fetchall():
-        scores[disease] = {
-            "percentile": percentile,
-            "category": risk,
-            "score": score
-        }
-    return scores
+    return [
+        {"disease": row[0], "percentile": row[1], "risk_category": row[2], "score": row[3]}
+        for row in cursor.fetchall()
+    ]
 
-def evaluate_pk_pd_mechanisms(conn, patient_variants, pgx):
+def evaluate_pk_pd(conn):
     cursor = conn.cursor()
     cursor.execute("SELECT drug_name, gene_symbol, mechanism_type, effect_summary FROM pk_pd_mechanisms")
-    mechanisms = []
-    for drug, gene, mech_type, effect in cursor.fetchall():
-        mechanisms.append({
-            "drug": drug,
-            "gene": gene,
-            "type": mech_type,
-            "effect": effect
-        })
-    return mechanisms
+    return [
+        {"drug": row[0], "gene": row[1], "type": row[2], "effect": row[3]}
+        for row in cursor.fetchall()
+    ]
 
-def evaluate_cpic_guidelines(conn, pgx):
+def evaluate_cpic(conn):
     cursor = conn.cursor()
     cursor.execute("SELECT drug_name, gene_symbol, status, recommendation FROM cpic_guidelines")
-    cpic = []
-    for drug, gene, status, rec in cursor.fetchall():
-        cpic.append({
-            "drug": drug,
-            "gene": gene,
-            "status": status,
-            "recommendation": rec
-        })
-    return cpic
+    return [
+        {"drug": row[0], "gene": row[1], "status": row[2], "recommendation": row[3]}
+        for row in cursor.fetchall()
+    ]
 
 def evaluate_ddi_rules(conn):
     cursor = conn.cursor()
     cursor.execute("SELECT drug1, drug2, interaction_level, clinical_effect FROM ddi_rules")
-    ddis = []
-    for d1, d2, level, effect in cursor.fetchall():
-        ddis.append({
-            "pair": f"{d1} + {d2}",
-            "level": level,
-            "effect": effect
-        })
-    return ddis
+    return [
+        {"drug1": row[0], "drug2": row[1], "level": row[2], "effect": row[3]}
+        for row in cursor.fetchall()
+    ]
 
 def evaluate_acmg_findings(conn, patient_variants):
     cursor = conn.cursor()
@@ -136,124 +120,152 @@ def evaluate_acmg_findings(conn, patient_variants):
     findings = []
     for rsid, gene, path, disease, actionable in cursor.fetchall():
         if rsid in patient_variants:
-            findings.append({
-                "rsid": rsid,
-                "gene": gene,
-                "pathogenicity": path,
-                "disease": disease,
-                "actionable": bool(actionable)
-            })
+            gt = patient_variants[rsid]['genotype']
+            if gt in ['1/1', '0/1', '1/0', '1|1', '0|1']:
+                findings.append({
+                    "rsid": rsid,
+                    "gene": gene,
+                    "pathogenicity": path,
+                    "disease": disease,
+                    "actionable": bool(actionable),
+                    "genotype": gt
+                })
     return findings
 
-def evaluate_targeted_therapies(conn, prs_scores, acmg_findings, pgx):
+def evaluate_genome_clinvar(conn, patient_variants):
+    cursor = conn.cursor()
+    cursor.execute("SELECT rsid, gene_symbol, clinical_significance, associated_conditions, review_status FROM genome_clinvar")
+    clinvar = []
+    for rsid, gene, sig, disease, status in cursor.fetchall():
+        if rsid in patient_variants:
+            clinvar.append({
+                "rsid": rsid,
+                "gene": gene,
+                "significance": sig,
+                "disease": disease,
+                "review_status": status,
+                "genotype": patient_variants[rsid]['genotype']
+            })
+    return clinvar
+
+def evaluate_targeted_therapies(conn, pgx_phenotypes):
     cursor = conn.cursor()
     cursor.execute("SELECT condition_trait, primary_drug, gene_checked, pgx_status, alternative_drug, clinical_rationale FROM disease_targeted_therapies")
     therapies = []
-    for cond, primary, gene, default_status, alt_drug, rec in cursor.fetchall():
-        status = default_status
-        selected_drug = primary
-        
-        if gene in pgx and "Poor" in pgx[gene]:
-            status = f"REASSIGNED TO ALTERNATIVE ({alt_drug}) due to {gene} status (HIGH_RISK)."
-            selected_drug = alt_drug
-        elif gene in pgx and "Decreased" in pgx[gene]:
-            status = f"SUITABLE ({primary}) with dose adjustment."
+    for trait, drug, gene, status, alt_drug, rationale in cursor.fetchall():
+        gene_status = pgx_phenotypes.get(gene, "Normal")
+        is_high_risk = "Poor" in gene_status or "Decreased" in gene_status
+
+        final_status = "REASSIGNED TO ALTERNATIVE (" + alt_drug + ") due to " + gene + " status (" + status + ")" if is_high_risk and status == "HIGH_RISK" else "SUITABLE"
+        selected_drug = alt_drug if is_high_risk and status == "HIGH_RISK" else drug
 
         therapies.append({
-            "condition": cond,
+            "condition": trait,
+            "primary_drug": drug,
             "selected_drug": selected_drug,
             "gene_checked": gene,
-            "pgx_status": status,
-            "rationale": rec
+            "pgx_status": final_status,
+            "rationale": rationale
         })
     return therapies
 
-def generate_report(vcf_path, patient_id, output_path):
-    conn = connect_db()
-    patient_variants = parse_vcf_variants(vcf_path)
-    
-    pgx = evaluate_pgx_phenotypes(conn, patient_variants)
-    prs = evaluate_prs_scores(conn, patient_variants)
-    pkpd = evaluate_pk_pd_mechanisms(conn, patient_variants, pgx)
-    cpic = evaluate_cpic_guidelines(conn, pgx)
-    ddi = evaluate_ddi_rules(conn)
-    acmg = evaluate_acmg_findings(conn, patient_variants)
-    targeted = evaluate_targeted_therapies(conn, prs, acmg, pgx)
-    clinvar = evaluate_genome_wide_clinvar(conn, patient_variants)
+def generate_report(vcf_path, patient_id, output_json=None):
+    if not os.path.exists("genomic_knowledgebase.db"):
+        print("[!] Database genomic_knowledgebase.db missing. Running setup_db.py...")
+        os.system("python3 setup_db.py")
 
-    report = {
+    conn = sqlite3.connect("genomic_knowledgebase.db")
+
+    patient_variants = parse_vcf(vcf_path, patient_id)
+    pgx_phenotypes = evaluate_pgx_star_alleles(conn, patient_variants)
+    prs_results = evaluate_prs(conn)
+    pk_pd_results = evaluate_pk_pd(conn)
+    cpic_results = evaluate_cpic(conn)
+    ddi_results = evaluate_ddi_rules(conn)
+    acmg_results = evaluate_acmg_findings(conn, patient_variants)
+    clinvar_results = evaluate_genome_clinvar(conn, patient_variants)
+    targeted_therapies = evaluate_targeted_therapies(conn, pgx_phenotypes)
+
+    report_data = {
         "patient_id": patient_id,
-        "vcf_source": vcf_path,
-        "pgx_phenotypes": pgx,
-        "polygenic_risk_scores": prs,
-        "pk_pd_mechanisms": pkpd,
-        "cpic_guidelines": cpic,
-        "drug_interactions": ddi,
-        "acmg_secondary_findings": acmg,
-        "genome_wide_clinvar_findings": clinvar,
-        "targeted_therapies": targeted
+        "vcf_file": vcf_path,
+        "variants_parsed": len(patient_variants),
+        "pgx_phenotypes": pgx_phenotypes,
+        "prs_results": prs_results,
+        "pk_pd_mechanisms": pk_pd_results,
+        "cpic_guidelines": cpic_results,
+        "ddi_interactions": ddi_results,
+        "acmg_findings": acmg_results,
+        "genome_clinvar": clinvar_results,
+        "targeted_therapies": targeted_therapies
     }
 
-    print("\n" + "="*80)
-    print("      COMPREHENSIVE PRECISION MEDICINE & GENOME-WIDE CLINVAR REPORT")
-    print(f"      Patient ID: {patient_id} | VCF File: {os.path.basename(vcf_path)}")
+    # Console Output
     print("="*80)
+    print("      COMPREHENSIVE PRECISION MEDICINE & GENOME-WIDE CLINVAR REPORT")
+    print(f"      Patient ID: {patient_id} | VCF File: {vcf_path}")
+    print("="*80 + "\n")
 
-    print("\n🧬 [1. PHARMACOGENOMIC PHENOTYPES]")
-    for gene, status in pgx.items():
+    print("🧬 [1. PHARMACOGENOMIC PHENOTYPES]")
+    for gene, status in pgx_phenotypes.items():
         print(f"  • {gene:<10}: {status}")
 
     print("\n📊 [2. ALL POLYGENIC RISK SCORES (PRS)]")
-    for disease, data in prs.items():
-        print(f"  • {disease:<25}: {data['category']:<13} Risk (Percentile: {data['percentile']}%, Score: {data['score']})")
+    for prs in prs_results:
+        print(f"  • {prs['disease']:<27}: {prs['risk_category']:<13} Risk (Percentile: {prs['percentile']}%, Score: {prs['score']})")
 
     print("\n🔬 [3. PHARMACOKINETIC (PK) & PHARMACODYNAMIC (PD) MECHANISMS]")
-    for m in pkpd:
-        print(f"  • [{m['type']}] {m['drug']} ({m['gene']}): {m['effect']}")
+    for pkpd in pk_pd_results:
+        print(f"  • [{pkpd['type']}] {pkpd['drug']} ({pkpd['gene']}): {pkpd['effect']}")
 
     print("\n💊 [4. CPIC & WESTERN MEDICINE THERAPEUTIC SCREEN]")
-    print(f"{'DRUG':<15}{'GENE':<10}{'STATUS':<17}{'RECOMMENDATION'}")
+    print(f"{'DRUG':<15} {'GENE':<10} {'STATUS':<16} {'RECOMMENDATION'}")
     print("-" * 80)
-    for c in cpic:
-        print(f"{c['drug']:<15}{c['gene']:<10}{c['status']:<17}{c['recommendation']}")
+    for cpic in cpic_results:
+        print(f"{cpic['drug']:<15} {cpic['gene']:<10} {cpic['status']:<16} {cpic['recommendation']}")
 
     print("\n⚠️ [5. DRUG-DRUG INTERACTIONS (DDI)]")
-    for d in ddi:
-        print(f"  • {d['pair']} [{d['level']}]: {d['effect']}")
+    for ddi in ddi_results:
+        print(f"  • {ddi['drug1']} + {ddi['drug2']} [{ddi['level']}]: {ddi['effect']}")
 
     print("\n🚨 [6. PATHOGENICITY & ACMG SECONDARY FINDINGS]")
-    for a in acmg:
-        print(f"  • {a['rsid']} ({a['gene']}): {a['pathogenicity']} for {a['disease']} [ACMG Actionable]")
+    if acmg_results:
+        for acmg in acmg_results:
+            print(f"  • [{acmg['gene']}] {acmg['rsid']} ({acmg['disease']}) - {acmg['pathogenicity']} (GT: {acmg['genotype']})")
+    else:
+        print("  • No pathogenic secondary findings detected.")
 
-    print("\n🌐 [7. GENOME-WIDE CLINVAR ANNOTATIONS (ALL KNOWN DISORDERS & VARIANT RISKS)]")
-    if clinvar:
-        for cl in clinvar:
-            print(f"  • {cl['rsid']} ({cl['gene']}): {cl['significance']} for {cl['condition']} (Genotype: {cl['genotype']})")
+    print("\n🌐 [7. GENOME-WIDE CLINVAR ANNOTATIONS]")
+    if clinvar_results:
+        for clinvar in clinvar_results:
+            print(f"  • [{clinvar['gene']}] {clinvar['rsid']} - {clinvar['disease']} ({clinvar['significance']})")
     else:
         print("  • No additional ClinVar pathogenic/benign variants detected in target dataset.")
 
     print("\n🎯 [8. POLYGENIC RISK & GENETIC CONDITION TARGETED THERAPIES]")
-    for t in targeted:
-        print(f"  • CONDITION / TRAIT : {t['condition']}")
-        print(f"    SELECTED DRUG      : {t['selected_drug']} (Gene Checked: {t['gene_checked']})")
-        print(f"    PGX STATUS         : {t['pgx_status']}")
-        print(f"    RATIONALE          : {t['rationale']}\n")
+    for therapy in targeted_therapies:
+        print(f"  • CONDITION / TRAIT : {therapy['condition']}")
+        print(f"    SELECTED DRUG      : {therapy['selected_drug']} (Gene Checked: {therapy['gene_checked']})")
+        print(f"    PGX STATUS         : {therapy['pgx_status']}")
+        print(f"    RATIONALE          : {therapy['rationale']}\n")
 
     print("="*80)
 
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
-    with open(output_path, 'w') as f:
-        json.dump(report, f, indent=2)
+    if output_json:
+        os.makedirs(os.path.dirname(output_json) or '.', exist_ok=True)
+        with open(output_json, 'w') as f:
+            json.dump(report_data, f, indent=2)
+        print(f"[✔] Complete multi-engine report saved: {output_json}")
+        print("="*80 + "\n")
 
-    print(f"[✔] Complete multi-engine report saved: {output_path}")
-    print("="*80 + "\n")
+    conn.close()
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Genome-Wide Precision Medicine Bot")
-    parser.add_argument("--vcf", required=True, help="Path to patient VCF file")
-    parser.add_argument("--patient-id", default="PATIENT_01", help="Patient Identifier")
-    parser.add_argument("--meds", default="all", help="Target medication panel")
-    parser.add_argument("--output", default="results/report.json", help="Output JSON path")
+    parser = argparse.ArgumentParser(description="Precision Medicine & Genome-Wide ClinVar Analysis Pipeline")
+    parser.add_argument("--vcf", required=True, help="Path to patient VCF or VCF.GZ file")
+    parser.add_argument("--patient-id", required=True, help="Target sample ID in VCF")
+    parser.add_argument("--meds", default="all", help="Comma-separated list of medications or 'all'")
+    parser.add_argument("--output", default="results/patient_report.json", help="Output path for JSON report")
 
     args = parser.parse_args()
     generate_report(args.vcf, args.patient_id, args.output)
