@@ -9,7 +9,7 @@ DB_PATH = 'genomic_knowledgebase.db'
 
 def ensure_db_exists():
     if not os.path.exists(DB_PATH):
-        print(f"[!] '{DB_PATH}' not found. Seeding database now...")
+        print(f"[!] '{DB_PATH}' not found. Seeding database...")
         import setup_db
         setup_db.init_db()
 
@@ -17,13 +17,12 @@ def run_pipeline(patient_id, vcf_path, meds, output_path):
     ensure_db_exists()
 
     if not os.path.exists(vcf_path):
-        print(f"❌ Error: VCF file not found at '{vcf_path}'. Please verify path.")
+        print(f"❌ Error: VCF file not found at '{vcf_path}'.")
         sys.exit(1)
 
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
-    # 1. CPIC Baseline & Western Medicine Query
     if 'all' in [m.lower() for m in meds]:
         cursor.execute("SELECT drug_name, gene_symbol, phenotype, cpic_level, clinical_status, recommendation, target_disorder, therapeutic_class FROM cpic_rules")
     else:
@@ -37,14 +36,12 @@ def run_pipeline(patient_id, vcf_path, meds, output_path):
         "target_disorder": r[6], "therapeutic_class": r[7]
     } for r in rows]
 
-    # 2. Pharmacokinetic (PK) & Pharmacodynamic (PD) Engine Query
     cursor.execute("SELECT drug_name, gene_symbol, mechanism_type, biological_pathway, clinical_effect FROM pk_pd_annotations")
     pk_pd_results = [{
         "drug_name": r[0], "gene_symbol": r[1], "mechanism_type": r[2],
         "biological_pathway": r[3], "clinical_effect": r[4]
     } for r in cursor.fetchall()]
         
-    # 3. Comprehensive Polygenic Risk Scores (PRS) Query
     cursor.execute("SELECT trait, SUM(weight) FROM prs_weights GROUP BY trait")
     prs_scores = {}
     for trait, score in cursor.fetchall():
@@ -55,19 +52,59 @@ def run_pipeline(patient_id, vcf_path, meds, output_path):
             "risk_category": "High" if percentile > 75 else ("Moderate" if percentile > 25 else "Low")
         }
 
-    # 4. Drug-Drug Interaction (DDI) Engine
     cursor.execute("SELECT drug_a, drug_b, interaction_severity, mechanism, clinical_guidance FROM ddi_rules")
     ddi_results = [{
         "drug_a": r[0], "drug_b": r[1], "severity": r[2],
         "mechanism": r[3], "clinical_guidance": r[4]
     } for r in cursor.fetchall()]
 
-    # 5. Pathogenicity & ACMG Secondary Findings Engine
     cursor.execute("SELECT rsid, gene_symbol, clinical_significance, associated_condition, acmg_actionable FROM pathogenicity_db")
     pathogenicity_findings = [{
         "rsid": r[0], "gene_symbol": r[1], "significance": r[2],
         "condition": r[3], "acmg_secondary_finding": bool(r[4])
     } for r in cursor.fetchall()]
+
+    cursor.execute("SELECT condition_or_trait, condition_type, first_line_drug, alternative_drug, target_gene_check, clinical_rationale FROM prs_condition_therapies")
+    prs_therapy_rules = cursor.fetchall()
+
+    targeted_therapies = []
+    for cond_name, cond_type, first_line, alt_drug, gene_check, rationale in prs_therapy_rules:
+        trigger_active = False
+        trigger_reason = ""
+
+        if cond_type == "PRS_TRAIT":
+            prs_info = prs_scores.get(cond_name, {})
+            if prs_info.get("risk_category") in ["High", "Moderate"]:
+                trigger_active = True
+                trigger_reason = f"Elevated PRS risk ({prs_info.get('risk_category')}, {prs_info.get('percentile')}th percentile)"
+        elif cond_type == "ACMG_VARIANT":
+            matching_variant = next((p for p in pathogenicity_findings if p["condition"] == cond_name), None)
+            if matching_variant:
+                trigger_active = True
+                trigger_reason = f"Pathogenic Variant Detected ({matching_variant['rsid']} in {matching_variant['gene_symbol']})"
+
+        if trigger_active:
+            cpic_match = next((m for m in matrix if m["drug_name"].lower() == first_line.lower()), None)
+            
+            if cpic_match and cpic_match["clinical_status"] in ["CONTRAINDICATED", "HIGH_RISK"]:
+                selected_drug = alt_drug
+                status_summary = f"REASSIGNED TO ALTERNATIVE ({alt_drug}) due to {gene_check} status ({cpic_match['clinical_status']})."
+            elif cpic_match:
+                selected_drug = first_line
+                status_summary = f"SUITABLE ({first_line}) - {cpic_match['primary_recommendation']}"
+            else:
+                selected_drug = first_line
+                status_summary = f"RECOMMENDED ({first_line}) - Standard dosing."
+
+            targeted_therapies.append({
+                "condition_or_trait": cond_name,
+                "trigger_source": trigger_reason,
+                "first_line_drug": first_line,
+                "selected_drug": selected_drug,
+                "gene_checked": gene_check,
+                "pharmacogenomic_status": status_summary,
+                "clinical_rationale": rationale
+            })
 
     conn.close()
 
@@ -87,14 +124,14 @@ def run_pipeline(patient_id, vcf_path, meds, output_path):
         "pharmacogenomic_matrix": matrix,
         "pk_pd_mechanisms": pk_pd_results,
         "drug_drug_interactions": ddi_results,
-        "pathogenicity_findings": pathogenicity_findings
+        "pathogenicity_findings": pathogenicity_findings,
+        "prs_and_genetic_targeted_therapies": targeted_therapies
     }
 
     os.makedirs(os.path.dirname(output_path) or '.', exist_ok=True)
     with open(output_path, 'w') as f:
         json.dump(report, f, indent=2)
 
-    # CLI Terminal Display
     print("\n" + "="*80)
     print(f"      COMPREHENSIVE PRECISION MEDICINE & PHARMACOGENOMIC REPORT")
     print(f"      Patient ID: {patient_id} | VCF File: {os.path.basename(vcf_path)}")
@@ -127,7 +164,18 @@ def run_pipeline(patient_id, vcf_path, meds, output_path):
         acmg_flag = " [ACMG Actionable]" if path["acmg_secondary_finding"] else ""
         print(f"  • {path['rsid']} ({path['gene_symbol']}): {path['significance']} for {path['condition']}{acmg_flag}")
 
-    print("\n" + "="*80)
+    print("\n🎯 [7. POLYGENIC RISK & GENETIC CONDITION TARGETED THERAPIES]")
+    if targeted_therapies:
+        for rx in targeted_therapies:
+            print(f"  • CONDITION / TRAIT : {rx['condition_or_trait']}")
+            print(f"    TRIGGER SOURCE    : {rx['trigger_source']}")
+            print(f"    SELECTED DRUG     : {rx['selected_drug']} (Gene Checked: {rx['gene_checked']})")
+            print(f"    PGX STATUS        : {rx['pharmacogenomic_status']}")
+            print(f"    RATIONALE         : {rx['clinical_rationale']}\n")
+    else:
+        print("  • No high-risk polygenic or pathogenic conditions triggered specific therapy recommendations.")
+
+    print("="*80)
     print(f"[✔] Complete multi-engine report saved: {output_path}")
     print("="*80 + "\n")
 
