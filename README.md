@@ -41,3 +41,4 @@ Clone the repository and install required dependencies:
 git clone [https://github.com/operationgenetics/Genetic-vcf-Pharmacokinetic-Pharmacodynamic-Polygenic-Risk-Score-Integration-tool.-.git](https://github.com/operationgenetics/Genetic-vcf-Pharmacokinetic-Pharmacodynamic-Polygenic-Risk-Score-Integration-tool.-.git)
 cd Genetic-vcf-Pharmacokinetic-Pharmacodynamic-Polygenic-Risk-Score-Integration-tool.-
 pip install -r requirements.txt
+python3 setup_db.py
