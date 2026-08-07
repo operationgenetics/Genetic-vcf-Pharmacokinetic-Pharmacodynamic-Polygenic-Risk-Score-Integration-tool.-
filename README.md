@@ -39,7 +39,7 @@ The pipeline processes raw or compressed VCF files through an automated 8-engine
 Clone the repository and install required dependencies:
 
 ```bash
-git clone [https://github.com/operationgenetics/Genetic-vcf-Pharmacokinetic-Pharmacodynamic-Polygenic-Risk-Score-Integration-tool.-.git](https://github.com/operationgenetics/Genetic-vcf-Pharmacokinetic-Pharmacodynamic-Polygenic-Risk-Score-Integration-tool.-.git)
-cd Genetic-vcf-Pharmacokinetic-Pharmacodynamic-Polygenic-Risk-Score-Integration-tool.-
+git clone [https://github.com/operationgenetics/Genetic-vcf-Pharmacokinetic-Pharmacodynamic-Polygenic-Risk-Score-Integration-tool.git](https://github.com/operationgenetics/Genetic-vcf-Pharmacokinetic-Pharmacodynamic-Polygenic-Risk-Score-Integration-tool.git)
+cd Genetic-vcf-Pharmacokinetic-Pharmacodynamic-Polygenic-Risk-Score-Integration-tool
 pip install -r requirements.txt
 python3 setup_db.py
