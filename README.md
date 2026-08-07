@@ -1,6 +1,6 @@
 # Genetic-vcf-Pharmacokinetic-Pharmacodynamic-Polygenic-Risk-Score-Integration-tool
 
-> **CLI Bioinformatics Engine:** An end-to-end precision medicine pipeline integrating VCF variant parsing, CPIC pharmacogenomics (PGx), PK/PD mechanics, Polygenic Risk Scoring (PRS), ACMG pathogenicity, and automated risk-stratified drug selection across psychiatric, cardiovascular, and metabolic disorders.
+> **CLI Precision Medicine & Genomic Screening Engine:** End-to-end bioinformatics pipeline integrating multi-sample VCF variant parsing, CPIC pharmacogenomics (PGx), PK/PD mechanics, Polygenic Risk Scoring (PRS), ACMG pathogenicity, drug-drug interactions (DDIs), and genome-wide ClinVar screening to power automated, risk-stratified therapeutic selection across psychiatric, cardiovascular, and metabolic disorders.
 
 ---
 
@@ -14,20 +14,21 @@
 
 ---
 
-## 🧬 Pipeline Architecture & Features
+## 🧬 Pipeline Architecture & Core Engines
 
-The pipeline processes raw VCF files through an automated 7-engine workflow:
+The pipeline processes raw or compressed VCF files through an automated 8-engine SQLite-backed workflow:
 
-1. **Pharmacogenomic (PGx) Phenotyping Engine:** Evaluates star-allele metabolizer profiles across major Phase I/II enzymes, transporters, and immune markers (`CYP2D6`, `CYP2C9`, `CYP2C19`, `CYP3A5`, `SLCO1B1`, `DPYD`, `HLA-B*15:02`).
-2. **Polygenic Risk Scoring (PRS) Engine:** Calculates percentile risk scores across complex polygenic traits:
-   * **Psychiatric / Neurological:** Schizoaffective Disorder, Bipolar Disorder, Major Depressive Disorder, Alzheimer's Disease.
+1. **Pharmacogenomic (PGx) Phenotyping Engine:** Evaluates star-allele metabolizer profiles across major Phase I/II enzymes, drug transporters, and immune markers (`CYP2D6`, `CYP2C9`, `CYP2C19`, `CYP3A5`, `SLCO1B1`, `DPYD`, `HLA-B*15:02`, `VKORC1`).
+2. **Polygenic Risk Scoring (PRS) Engine:** Calculates percentile risk scores and categorizes risk tiers across complex polygenic traits:
+   * **Psychiatric & Neurological:** Schizoaffective Disorder, Bipolar Disorder, Major Depressive Disorder, Alzheimer's Disease.
    * **Cardiovascular & Metabolic:** Coronary Artery Disease (CAD), Primary Hypertension, Hypercholesterolemia, Type 2 Diabetes.
    * **Oncology:** Hereditary Breast Cancer risk modifiers.
 3. **PK / PD Mechanism Mapper:** Annotates bioactivation pathways, hepatic clearance kinetics, receptor sensitivity shifts (`VKORC1`, `ADRB1`), and immune-mediated cytotoxicity paths (`HLA-B*15:02` SJS/TEN risk).
-4. **CPIC & Western Medicine Matrix:** Implements evidence-based clinical dosing guidelines, contraindications, and dosing adjustments.
-5. **Drug-Drug Interaction (DDI) Screener:** Flags enzyme competition and dangerous co-prescriptions (e.g., Aripiprazole + Fluoxetine, Clopidogrel + Omeprazole, Warfarin + Amiodarone).
-6. **ACMG Pathogenicity & Secondary Findings:** Detects actionable monogenic variants (`F5` Factor V Leiden, `BRCA1`, `SERPINA1`, `MTHFR`, `COMT`).
-7. **Polygenic Risk & Disease-Targeted Therapy Bridge:** Automatically cross-references elevated polygenic burden (PRS) or pathogenic variants (ACMG) directly against individual PGx metabolism to recommend safe first-line or reassigned alternative therapies.
+4. **CPIC & Western Medicine Matrix:** Implements evidence-based CPIC clinical dosing guidelines, contraindications, and precision titration recommendations.
+5. **Drug-Drug Interaction (DDI) Screener:** Flags enzyme competition, metabolic inhibition, and dangerous co-prescriptions (e.g., Aripiprazole + Fluoxetine, Clopidogrel + Omeprazole, Warfarin + Amiodarone).
+6. **ACMG Pathogenicity & Secondary Findings Engine:** Detects highly actionable monogenic variants (`F5` Factor V Leiden, `BRCA1`, `SERPINA1`, `MTHFR`, `COMT`).
+7. **Genome-Wide ClinVar Annotation Engine:** Annotates whole-genome variants (up to 30x WGS datasets) against the entire NCBI ClinVar database, profiling pathogenic mutations, likely pathogenic variants, benign markers, and disorder risk factors across thousands of curated genetic conditions.
+8. **Polygenic Risk & Disease-Targeted Therapy Bridge:** Automatically cross-references elevated polygenic burden (PRS) or pathogenic variants (ACMG) directly against individual PGx metabolism to recommend safe first-line or reassigned alternative therapies.
 
 ---
 
