@@ -1,6 +1,6 @@
 # Genetic-vcf-Pharmacokinetic-Pharmacodynamic-Polygenic-Risk-Score-Integration-tool
 
-> **CLI Precision Medicine & Genomic Screening Engine:** End-to-end bioinformatics pipeline integrating multi-sample VCF variant parsing, CPIC pharmacogenomics (PGx), PK/PD mechanics, Polygenic Risk Scoring (PRS), ACMG pathogenicity, drug-drug interactions (DDIs), and genome-wide ClinVar screening to power automated, risk-stratified therapeutic selection across psychiatric, cardiovascular, and metabolic disorders.
+> **CLI Precision Medicine & Genomic Screening Engine:** End-to-end bioinformatics pipeline integrating multi-sample VCF variant parsing, CPIC pharmacogenomics (PGx), PK/PD mechanics, universal Polygenic Risk Scoring (PRS) via the global PGS Catalog API, ACMG pathogenicity, drug-drug interactions (DDIs), and genome-wide ClinVar screening to power automated, risk-stratified therapeutic selection across psychiatric, cardiovascular, and metabolic disorders.
 
 ---
 
@@ -19,10 +19,10 @@
 The pipeline processes raw or compressed VCF files through an automated 8-engine SQLite-backed workflow:
 
 1. **Pharmacogenomic (PGx) Phenotyping Engine:** Evaluates star-allele metabolizer profiles across major Phase I/II enzymes, drug transporters, and immune markers (`CYP2D6`, `CYP2C9`, `CYP2C19`, `CYP3A5`, `SLCO1B1`, `DPYD`, `HLA-B*15:02`, `VKORC1`).
-2. **Polygenic Risk Scoring (PRS) Engine:** Calculates percentile risk scores and categorizes risk tiers across complex polygenic traits:
+2. **Universal Polygenic Risk Scoring (PRS) Engine:** Integrates both curated baseline traits and a **dynamic PGS Catalog REST API fetcher** (`fetch_universal_pgs_weights`) capable of querying and calculating percentile risk scores for *any* published polygenic disorder globally:
    * **Psychiatric & Neurological:** Schizoaffective Disorder, Bipolar Disorder, Major Depressive Disorder, Alzheimer's Disease.
    * **Cardiovascular & Metabolic:** Coronary Artery Disease (CAD), Primary Hypertension, Hypercholesterolemia, Type 2 Diabetes.
-   * **Oncology:** Hereditary Breast Cancer risk modifiers.
+   * **Oncology & Universal Expansion:** Hereditary Breast Cancer risk modifiers (`BRCA1`/`BRCA2`) and on-demand access to thousands of global trait matrices.
 3. **PK / PD Mechanism Mapper:** Annotates bioactivation pathways, hepatic clearance kinetics, receptor sensitivity shifts (`VKORC1`, `ADRB1`), and immune-mediated cytotoxicity paths (`HLA-B*15:02` SJS/TEN risk).
 4. **CPIC & Western Medicine Matrix:** Implements evidence-based CPIC clinical dosing guidelines, contraindications, and precision titration recommendations.
 5. **Drug-Drug Interaction (DDI) Screener:** Flags enzyme competition, metabolic inhibition, and dangerous co-prescriptions (e.g., Aripiprazole + Fluoxetine, Clopidogrel + Omeprazole, Warfarin + Amiodarone).
@@ -42,4 +42,4 @@ Clone the repository and install required dependencies:
 git clone [https://github.com/operationgenetics/Genetic-vcf-Pharmacokinetic-Pharmacodynamic-Polygenic-Risk-Score-Integration-tool.git](https://github.com/operationgenetics/Genetic-vcf-Pharmacokinetic-Pharmacodynamic-Polygenic-Risk-Score-Integration-tool.git)
 cd Genetic-vcf-Pharmacokinetic-Pharmacodynamic-Polygenic-Risk-Score-Integration-tool
 pip install -r requirements.txt
-python3 setup_db.py
+python3 init_db.py
